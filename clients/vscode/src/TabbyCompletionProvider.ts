@@ -62,7 +62,16 @@ export class TabbyCompletionProvider extends EventEmitter implements InlineCompl
       return null;
     }
 
+    let path: string | null = null;
+    const workspaceFolders = workspace.workspaceFolders;
+    if (workspaceFolders) {
+      const projectRoot = workspaceFolders[0].uri.fsPath;
+      const fullPath = document.fileName;
+      path = fullPath.replace(projectRoot + "/", "");
+    }
+
     const request: CompletionRequest = {
+      path,
       filepath: document.uri.fsPath,
       language: document.languageId, // https://code.visualstudio.com/docs/languages/identifiers
       text: document.getText(),

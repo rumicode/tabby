@@ -275,7 +275,12 @@ export class TabbyAgent extends EventEmitter implements Agent {
     }
   }
 
-  private createSegments(context: CompletionContext): { prefix: string; suffix: string; clipboard?: string } {
+  private createSegments(context: CompletionContext): {
+    prefix: string;
+    suffix: string;
+    clipboard?: string;
+    path?: string;
+  } {
     // max lines in prefix and suffix configurable
     const maxPrefixLines = this.config.completion.prompt.maxPrefixLines;
     const maxSuffixLines = this.config.completion.prompt.maxSuffixLines;
@@ -293,7 +298,7 @@ export class TabbyAgent extends EventEmitter implements Agent {
     if (context.clipboard.length >= clipboardConfig.minChars && context.clipboard.length <= clipboardConfig.maxChars) {
       clipboard = context.clipboard;
     }
-    return { prefix, suffix, clipboard };
+    return { prefix, suffix, clipboard, path: context.path };
   }
 
   public async initialize(options: AgentInitOptions): Promise<boolean> {

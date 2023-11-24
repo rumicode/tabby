@@ -3,6 +3,7 @@ import hashObject from "object-hash";
 
 export type CompletionRequest = {
   filepath: string;
+  path: string | null;
   language: string;
   text: string;
   position: number;
@@ -34,6 +35,7 @@ function isAtLineEndExcludingAutoClosedChar(suffix: string) {
 }
 
 export class CompletionContext {
+  path: string | null;
   filepath: string;
   language: string;
   text: string;
@@ -53,6 +55,7 @@ export class CompletionContext {
   hash: string;
 
   constructor(request: CompletionRequest) {
+    this.path = request.path;
     this.filepath = request.filepath;
     this.language = request.language;
     this.text = request.text;
