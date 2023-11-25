@@ -25,9 +25,9 @@ type Command = {
 };
 
 const toggleInlineCompletionTriggerMode: Command = {
-  command: "tabby.toggleInlineCompletionTriggerMode",
+  command: "rumicode.toggleInlineCompletionTriggerMode",
   callback: (value: "automatic" | "manual" | undefined) => {
-    const configuration = workspace.getConfiguration("tabby");
+    const configuration = workspace.getConfiguration("rumicode");
     let target = value;
     if (!target) {
       const current = configuration.get("inlineCompletion.triggerMode", "automatic");
@@ -42,9 +42,9 @@ const toggleInlineCompletionTriggerMode: Command = {
 };
 
 const setApiEndpoint: Command = {
-  command: "tabby.setApiEndpoint",
+  command: "rumicode.setApiEndpoint",
   callback: () => {
-    const configuration = workspace.getConfiguration("tabby");
+    const configuration = workspace.getConfiguration("rumicode");
     window
       .showInputBox({
         prompt: "Enter the URL of your Tabby Server",
@@ -72,14 +72,14 @@ const setApiEndpoint: Command = {
 };
 
 const openSettings: Command = {
-  command: "tabby.openSettings",
+  command: "rumicode.openSettings",
   callback: () => {
-    commands.executeCommand("workbench.action.openSettings", "@ext:TabbyML.vscode-tabby");
+    commands.executeCommand("workbench.action.openSettings", "@ext:RumiCode.rumicode");
   },
 };
 
 const openTabbyAgentSettings: Command = {
-  command: "tabby.openTabbyAgentSettings",
+  command: "rumicode.openTabbyAgentSettings",
   callback: () => {
     if (env.appHost !== "desktop") {
       window.showWarningMessage("Tabby Agent config file is not supported on web.", { modal: true });
@@ -100,21 +100,21 @@ const openTabbyAgentSettings: Command = {
 };
 
 const openKeybindings: Command = {
-  command: "tabby.openKeybindings",
+  command: "rumicode.openKeybindings",
   callback: () => {
-    commands.executeCommand("workbench.action.openGlobalKeybindings", "tabby.inlineCompletion");
+    commands.executeCommand("workbench.action.openGlobalKeybindings", "rumicode.inlineCompletion");
   },
 };
 
 const gettingStarted: Command = {
-  command: "tabby.gettingStarted",
+  command: "rumicode.gettingStarted",
   callback: () => {
-    commands.executeCommand("workbench.action.openWalkthrough", "TabbyML.vscode-tabby#gettingStarted");
+    commands.executeCommand("workbench.action.openWalkthrough", "RumiCode.rumicode#gettingStarted");
   },
 };
 
 const openAuthPage: Command = {
-  command: "tabby.openAuthPage",
+  command: "rumicode.openAuthPage",
   callback: (callbacks?: { onAuthStart?: () => void; onAuthEnd?: () => void }) => {
     window.withProgress(
       {
@@ -158,21 +158,21 @@ const openAuthPage: Command = {
 };
 
 const applyCallback: Command = {
-  command: "tabby.applyCallback",
+  command: "rumicode.applyCallback",
   callback: (callback) => {
     callback?.();
   },
 };
 
 const triggerInlineCompletion: Command = {
-  command: "tabby.inlineCompletion.trigger",
+  command: "rumicode.inlineCompletion.trigger",
   callback: () => {
     commands.executeCommand("editor.action.inlineSuggest.trigger");
   },
 };
 
 const acceptInlineCompletion: Command = {
-  command: "tabby.inlineCompletion.accept",
+  command: "rumicode.inlineCompletion.accept",
   callback: () => {
     commands.executeCommand("editor.action.inlineSuggest.commit");
   },
@@ -180,7 +180,7 @@ const acceptInlineCompletion: Command = {
 
 const acceptInlineCompletionNextWord = (completionProvider: TabbyCompletionProvider): Command => {
   return {
-    command: "tabby.inlineCompletion.acceptNextWord",
+    command: "rumicode.inlineCompletion.acceptNextWord",
     callback: () => {
       completionProvider.postEvent("accept_word");
       commands.executeCommand("editor.action.inlineSuggest.acceptNextWord");
@@ -190,7 +190,7 @@ const acceptInlineCompletionNextWord = (completionProvider: TabbyCompletionProvi
 
 const acceptInlineCompletionNextLine = (completionProvider: TabbyCompletionProvider): Command => {
   return {
-    command: "tabby.inlineCompletion.acceptNextLine",
+    command: "rumicode.inlineCompletion.acceptNextLine",
     callback: () => {
       completionProvider.postEvent("accept_line");
       // FIXME: this command move cursor to next line, but we want to move cursor to the end of current line
@@ -200,7 +200,7 @@ const acceptInlineCompletionNextLine = (completionProvider: TabbyCompletionProvi
 };
 
 const openOnlineHelp: Command = {
-  command: "tabby.openOnlineHelp",
+  command: "rumicode.openOnlineHelp",
   callback: () => {
     window
       .showQuickPick([
@@ -253,7 +253,7 @@ const openOnlineHelp: Command = {
 
 const muteNotifications = (context: ExtensionContext, statusBarItem: TabbyStatusBarItem): Command => {
   return {
-    command: "tabby.notifications.mute",
+    command: "rumicode.notifications.mute",
     callback: (type: string) => {
       const notifications = context.globalState.get<string[]>("notifications.muted", []);
       notifications.push(type);
@@ -265,7 +265,7 @@ const muteNotifications = (context: ExtensionContext, statusBarItem: TabbyStatus
 
 const resetMutedNotifications = (context: ExtensionContext, statusBarItem: TabbyStatusBarItem): Command => {
   return {
-    command: "tabby.notifications.resetMuted",
+    command: "rumicode.notifications.resetMuted",
     callback: (type?: string) => {
       const notifications = context.globalState.get<string[]>("notifications.muted", []);
       if (type) {

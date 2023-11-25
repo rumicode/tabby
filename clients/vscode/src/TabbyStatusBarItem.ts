@@ -5,7 +5,7 @@ import { agent } from "./agent";
 import { notifications } from "./notifications";
 import { TabbyCompletionProvider } from "./TabbyCompletionProvider";
 
-const label = "Tabby";
+const label = "RumiCode";
 const iconLoading = "$(loading~spin)";
 const iconAutomatic = "$(check)";
 const iconManual = "$(chevron-right)";
@@ -210,7 +210,7 @@ export class TabbyStatusBarItem {
     this.item.tooltip = "Tabby is initializing.";
     this.item.command = {
       title: "",
-      command: "tabby.applyCallback",
+      command: "rumicode.applyCallback",
       arguments: [() => notifications.showInformationWhenInitializing()],
     };
   }
@@ -222,7 +222,7 @@ export class TabbyStatusBarItem {
     this.item.tooltip = "Tabby automatic code completion is enabled.";
     this.item.command = {
       title: "",
-      command: "tabby.applyCallback",
+      command: "rumicode.applyCallback",
       arguments: [() => notifications.showInformationWhenAutomaticTrigger()],
     };
   }
@@ -234,7 +234,7 @@ export class TabbyStatusBarItem {
     this.item.tooltip = "Tabby is standing by, click or press `Alt + \\` to trigger code completion.";
     this.item.command = {
       title: "",
-      command: "tabby.applyCallback",
+      command: "rumicode.applyCallback",
       arguments: [() => notifications.showInformationWhenManualTrigger()],
     };
   }
@@ -246,7 +246,7 @@ export class TabbyStatusBarItem {
     this.item.tooltip = "Tabby is generating code completions.";
     this.item.command = {
       title: "",
-      command: "tabby.applyCallback",
+      command: "rumicode.applyCallback",
       arguments: [() => notifications.showInformationWhenManualTriggerLoading()],
     };
   }
@@ -258,7 +258,7 @@ export class TabbyStatusBarItem {
     this.item.tooltip = "Tabby is disabled. Click to check settings.";
     this.item.command = {
       title: "",
-      command: "tabby.applyCallback",
+      command: "rumicode.applyCallback",
       arguments: [() => notifications.showInformationWhenInlineSuggestDisabled()],
     };
 
@@ -273,7 +273,7 @@ export class TabbyStatusBarItem {
     this.item.tooltip = "Cannot connect to Tabby Server. Click to open settings.";
     this.item.command = {
       title: "",
-      command: "tabby.applyCallback",
+      command: "rumicode.applyCallback",
       arguments: [() => notifications.showInformationWhenDisconnected()],
     };
   }
@@ -285,7 +285,7 @@ export class TabbyStatusBarItem {
     this.item.tooltip = "Tabby Server requires authorization. Click to continue.";
     this.item.command = {
       title: "",
-      command: "tabby.applyCallback",
+      command: "rumicode.applyCallback",
       arguments: [
         () =>
           notifications.showInformationStartAuth({
@@ -328,7 +328,7 @@ export class TabbyStatusBarItem {
     }
     this.item.command = {
       title: "",
-      command: "tabby.applyCallback",
+      command: "rumicode.applyCallback",
       arguments: [
         () => {
           switch (issue?.name) {

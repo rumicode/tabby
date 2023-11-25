@@ -24,7 +24,7 @@ export class TabbyCompletionProvider extends EventEmitter implements InlineCompl
     super();
     this.updateConfiguration();
     workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration("tabby") || event.affectsConfiguration("editor.inlineSuggest")) {
+      if (event.affectsConfiguration("rumicode") || event.affectsConfiguration("editor.inlineSuggest")) {
         this.updateConfiguration();
       }
     });
@@ -114,7 +114,7 @@ export class TabbyCompletionProvider extends EventEmitter implements InlineCompl
             new Range(document.positionAt(choice.replaceRange.start), document.positionAt(choice.replaceRange.end)),
             {
               title: "",
-              command: "tabby.applyCallback",
+              command: "rumicode.applyCallback",
               arguments: [
                 () => {
                   this.postEvent("accept");
@@ -172,7 +172,7 @@ export class TabbyCompletionProvider extends EventEmitter implements InlineCompl
       this.triggerMode = "disabled";
       this.emit("triggerModeUpdated");
     } else {
-      this.triggerMode = workspace.getConfiguration("tabby").get("inlineCompletion.triggerMode", "automatic");
+      this.triggerMode = workspace.getConfiguration("rumicode").get("inlineCompletion.triggerMode", "automatic");
       this.emit("triggerModeUpdated");
     }
   }

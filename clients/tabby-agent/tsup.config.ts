@@ -30,7 +30,7 @@ export default async () => [
     entry: ["src/index.ts"],
     platform: "browser",
     format: ["iife"],
-    globalName: "Tabby",
+    globalName: "rumicode",
     treeshake: "smallest",
     minify: true,
     sourcemap: true,

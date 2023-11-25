@@ -7,10 +7,10 @@ import type {
 import { agent } from "./agent";
 
 function showInformationWhenInitializing() {
-  window.showInformationMessage("Tabby is initializing.", "Settings").then((selection) => {
+  window.showInformationMessage("RumiCode is initializing.", "Settings").then((selection) => {
     switch (selection) {
       case "Settings":
-        commands.executeCommand("tabby.openSettings");
+        commands.executeCommand("rumicode.openSettings");
         break;
     }
   });
@@ -19,17 +19,17 @@ function showInformationWhenInitializing() {
 function showInformationWhenAutomaticTrigger() {
   window
     .showInformationMessage(
-      "Tabby automatic code completion is enabled. Switch to manual trigger mode?",
+      "RumiCode automatic code completion is enabled. Switch to manual trigger mode?",
       "Manual Mode",
       "Settings",
     )
     .then((selection) => {
       switch (selection) {
         case "Manual Mode":
-          commands.executeCommand("tabby.toggleInlineCompletionTriggerMode", "manual");
+          commands.executeCommand("rumicode.toggleInlineCompletionTriggerMode", "manual");
           break;
         case "Settings":
-          commands.executeCommand("tabby.openSettings");
+          commands.executeCommand("rumicode.openSettings");
           break;
       }
     });
@@ -38,7 +38,7 @@ function showInformationWhenAutomaticTrigger() {
 function showInformationWhenManualTrigger() {
   window
     .showInformationMessage(
-      "Tabby is standing by. Trigger code completion manually?",
+      "RumiCode is standing by. Trigger code completion manually?",
       "Trigger",
       "Automatic Mode",
       "Settings",
@@ -49,20 +49,20 @@ function showInformationWhenManualTrigger() {
           commands.executeCommand("editor.action.inlineSuggest.trigger");
           break;
         case "Automatic Mode":
-          commands.executeCommand("tabby.toggleInlineCompletionTriggerMode", "automatic");
+          commands.executeCommand("rumicode.toggleInlineCompletionTriggerMode", "automatic");
           break;
         case "Settings":
-          commands.executeCommand("tabby.openSettings");
+          commands.executeCommand("rumicode.openSettings");
           break;
       }
     });
 }
 
 function showInformationWhenManualTriggerLoading() {
-  window.showInformationMessage("Tabby is generating code completions.", "Settings").then((selection) => {
+  window.showInformationMessage("RumiCode is generating code completions.", "Settings").then((selection) => {
     switch (selection) {
       case "Settings":
-        commands.executeCommand("tabby.openSettings");
+        commands.executeCommand("rumicode.openSettings");
         break;
     }
   });
@@ -71,7 +71,7 @@ function showInformationWhenManualTriggerLoading() {
 function showInformationWhenInlineSuggestDisabled() {
   window
     .showWarningMessage(
-      "Tabby's suggestion is not showing because inline suggestion is disabled. Please enable it first.",
+      "RumiCode's suggestion is not showing because inline suggestion is disabled. Please enable it first.",
       "Enable",
       "Settings",
     )
@@ -94,7 +94,7 @@ function showInformationWhenDisconnected(modal: boolean = false) {
     const message = agent().getIssueDetail<ConnectionFailedIssue>({ name: "connectionFailed" })?.message;
     window
       .showWarningMessage(
-        `Cannot connect to Tabby Server.`,
+        `Cannot connect to RumiCode Server.`,
         {
           modal: true,
           detail: message,
@@ -105,10 +105,10 @@ function showInformationWhenDisconnected(modal: boolean = false) {
       .then((selection) => {
         switch (selection) {
           case "Online Help...":
-            commands.executeCommand("tabby.openOnlineHelp");
+            commands.executeCommand("rumicode.openOnlineHelp");
             break;
           case "Settings":
-            commands.executeCommand("tabby.openSettings");
+            commands.executeCommand("rumicode.openSettings");
             break;
         }
       });
@@ -119,7 +119,7 @@ function showInformationWhenDisconnected(modal: boolean = false) {
           showInformationWhenDisconnected(true);
           break;
         case "Settings":
-          commands.executeCommand("tabby.openSettings");
+          commands.executeCommand("rumicode.openSettings");
           break;
       }
     });
@@ -136,10 +136,10 @@ function showInformationStartAuth(callbacks?: { onAuthStart?: () => void; onAuth
     .then((selection) => {
       switch (selection) {
         case "Continue":
-          commands.executeCommand("tabby.openAuthPage", callbacks);
+          commands.executeCommand("rumicode.openAuthPage", callbacks);
           break;
         case "Settings":
-          commands.executeCommand("tabby.openSettings");
+          commands.executeCommand("rumicode.openSettings");
       }
     });
 }
@@ -156,7 +156,7 @@ function showInformationWhenAuthFailed() {
   window.showWarningMessage("Cannot connect to server. Please check settings.", "Settings").then((selection) => {
     switch (selection) {
       case "Settings":
-        commands.executeCommand("tabby.openSettings");
+        commands.executeCommand("rumicode.openSettings");
         break;
     }
   });
@@ -222,10 +222,10 @@ function showInformationWhenSlowCompletionResponseTime(modal: boolean = false) {
       .then((selection) => {
         switch (selection) {
           case "Online Help...":
-            commands.executeCommand("tabby.openOnlineHelp");
+            commands.executeCommand("rumicode.openOnlineHelp");
             break;
           case "Don't Show Again":
-            commands.executeCommand("tabby.notifications.mute", "completionResponseTimeIssues");
+            commands.executeCommand("rumicode.notifications.mute", "completionResponseTimeIssues");
             break;
         }
       });
@@ -238,10 +238,10 @@ function showInformationWhenSlowCompletionResponseTime(modal: boolean = false) {
             showInformationWhenSlowCompletionResponseTime(true);
             break;
           case "Settings":
-            commands.executeCommand("tabby.openSettings");
+            commands.executeCommand("rumicode.openSettings");
             break;
           case "Don't Show Again":
-            commands.executeCommand("tabby.notifications.mute", "completionResponseTimeIssues");
+            commands.executeCommand("rumicode.notifications.mute", "completionResponseTimeIssues");
             break;
         }
       });
@@ -269,10 +269,10 @@ function showInformationWhenHighCompletionTimeoutRate(modal: boolean = false) {
       .then((selection) => {
         switch (selection) {
           case "Online Help...":
-            commands.executeCommand("tabby.openOnlineHelp");
+            commands.executeCommand("rumicode.openOnlineHelp");
             break;
           case "Don't Show Again":
-            commands.executeCommand("tabby.notifications.mute", "completionResponseTimeIssues");
+            commands.executeCommand("rumicode.notifications.mute", "completionResponseTimeIssues");
             break;
         }
       });
@@ -285,10 +285,10 @@ function showInformationWhenHighCompletionTimeoutRate(modal: boolean = false) {
             showInformationWhenHighCompletionTimeoutRate(true);
             break;
           case "Settings":
-            commands.executeCommand("tabby.openSettings");
+            commands.executeCommand("rumicode.openSettings");
             break;
           case "Don't Show Again":
-            commands.executeCommand("tabby.notifications.mute", "completionResponseTimeIssues");
+            commands.executeCommand("rumicode.notifications.mute", "completionResponseTimeIssues");
             break;
         }
       });
