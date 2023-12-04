@@ -1,12 +1,13 @@
 [package]
 name = "tabby"
-version = "0.6.0-dev"
+version = "0.7.0-dev"
 edition = "2021"
 
 [features]
 default = ["ee"]
 ee = ["dep:tabby-webserver"]
 cuda = ["llama-cpp-bindings/cuda"]
+rocm = ["llama-cpp-bindings/rocm"]
 experimental-http = ["dep:http-api-bindings"]
 
 [dependencies]
@@ -65,3 +66,4 @@ vergen = { version = "8.0.0", features = ["build", "git", "gitcl"] }
 [dev-dependencies]
 assert-json-diff = "2.0.2"
 reqwest.workspace = true
+serde-jsonlines = "0.5.0"

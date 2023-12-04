@@ -1951,7 +1951,7 @@ dependencies = [
 
 [[package]]
 name = "http-api-bindings"
-version = "0.6.0-dev"
+version = "0.7.0-dev"
 dependencies = [
  "async-trait",
  "futures",
@@ -2254,7 +2254,7 @@ dependencies = [
 
 [[package]]
 name = "juniper-axum"
-version = "0.6.0-dev"
+version = "0.7.0-dev"
 dependencies = [
  "axum",
  "juniper",
@@ -2410,7 +2410,7 @@ checksum = "da2479e8c062e40bf0066ffa0bc823de0a9368974af99c9f6df941d2c231e03f"
 
 [[package]]
 name = "llama-cpp-bindings"
-version = "0.6.0-dev"
+version = "0.7.0-dev"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -4128,6 +4128,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-jsonlines"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e228faf5f94badfe42723177b62cfb9b187351994cb4e852cd4a6a4c96dbeea8"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.171"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4554,7 +4564,7 @@ dependencies = [
 
 [[package]]
 name = "tabby"
-version = "0.6.0-dev"
+version = "0.7.0-dev"
 dependencies = [
  "anyhow",
  "assert-json-diff",
@@ -4578,6 +4588,7 @@ dependencies = [
  "regex",
  "reqwest",
  "serde",
+ "serde-jsonlines 0.5.0",
  "serde_json",
  "serdeconv",
  "strfmt",
@@ -4604,7 +4615,7 @@ dependencies = [
 
 [[package]]
 name = "tabby-common"
-version = "0.6.0-dev"
+version = "0.7.0-dev"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4613,7 +4624,7 @@ dependencies = [
  "lazy_static",
  "reqwest",
  "serde",
- "serde-jsonlines",
+ "serde-jsonlines 0.4.0",
  "serde_json",
  "serdeconv",
  "tantivy",
@@ -4624,7 +4635,7 @@ dependencies = [
 
 [[package]]
 name = "tabby-download"
-version = "0.6.0-dev"
+version = "0.7.0-dev"
 dependencies = [
  "aim",
  "anyhow",
@@ -4636,7 +4647,7 @@ dependencies = [
 
 [[package]]
 name = "tabby-inference"
-version = "0.6.0-dev"
+version = "0.7.0-dev"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -4649,7 +4660,7 @@ dependencies = [
 
 [[package]]
 name = "tabby-scheduler"
-version = "0.6.0-dev"
+version = "0.7.0-dev"
 dependencies = [
  "anyhow",
  "cargo-lock",
@@ -4659,7 +4670,7 @@ dependencies = [
  "kdam",
  "lazy_static",
  "requirements",
- "serde-jsonlines",
+ "serde-jsonlines 0.4.0",
  "serde_json",
  "serdeconv",
  "tabby-common",
@@ -4680,7 +4691,7 @@ dependencies = [
 
 [[package]]
 name = "tabby-webserver"
-version = "0.6.0-dev"
+version = "0.7.0-dev"
 dependencies = [
  "anyhow",
  "async-trait",
