@@ -1,17 +1,13 @@
-import { UseChatHelpers } from 'ai/react'
 import * as React from 'react'
+import { UseChatHelpers } from 'ai/react'
+import { debounce, has } from 'lodash-es'
 import useSWR from 'swr'
+
+import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
+import fetcher from '@/lib/tabby/fetcher'
+import type { ISearchHit, SearchReponse } from '@/lib/types'
+import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
-import {
-  IconArrowElbow,
-  IconEdit,
-  IconSymbolFunction
-} from '@/components/ui/icons'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from '@/components/ui/tooltip'
 import {
   Combobox,
   ComboboxAnchor,
@@ -19,12 +15,17 @@ import {
   ComboboxOption,
   ComboboxTextarea
 } from '@/components/ui/combobox'
+import {
+  IconArrowElbow,
+  IconEdit,
+  IconSymbolFunction
+} from '@/components/ui/icons'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
-import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
-import { cn } from '@/lib/utils'
-import fetcher from '@/lib/tabby-fetcher'
-import { debounce, has } from 'lodash-es'
-import type { ISearchHit, SearchReponse } from '@/lib/types'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip'
 
 export interface PromptProps
   extends Pick<UseChatHelpers, 'input' | 'setInput'> {
@@ -99,7 +100,7 @@ function PromptFormRenderer(
       const queryNameMatches = getSearchCompletionQueryName(value, end)
       const queryName = queryNameMatches?.[1]
       if (queryName) {
-        const query = encodeURIComponent(`name:${queryName} kind:function`)
+        const query = encodeURIComponent(`name:${queryName} AND kind:function`)
         const url = `/v1beta/search?q=${query}`
         latestFetchKey.current = url
         setQueryCompletionUrl(url)

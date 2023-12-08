@@ -35,11 +35,20 @@ function buildInitOptions(context: ExtensionContext): AgentInitOptions {
       },
     },
   };
-
-  return { config, clientProperties };
+  const extensionDataStore: DataStore = {
+    data: {},
+    load: async function () {
+      this.data = context.globalState.get("data", {});
+    },
+    save: async function () {
+      context.globalState.update("data", this.data);
+    },
+  };
+  const dataStore = env.appHost === "desktop" ? undefined : extensionDataStore;
+  return { config, clientProperties, dataStore };
 }
 
-var instance: TabbyAgent | undefined = undefined;
+let instance: TabbyAgent | undefined = undefined;
 
 export function agent(): TabbyAgent {
   if (!instance) {
@@ -50,16 +59,7 @@ export function agent(): TabbyAgent {
 
 export async function createAgentInstance(context: ExtensionContext): Promise<TabbyAgent> {
   if (!instance) {
-    const extensionDataStore: DataStore = {
-      data: {},
-      load: async function () {
-        this.data = context.globalState.get("data", {});
-      },
-      save: async function () {
-        context.globalState.update("data", this.data);
-      },
-    };
-    const agent = await TabbyAgent.create({ dataStore: env.appHost === "desktop" ? undefined : extensionDataStore });
+    const agent = new TabbyAgent();
     const initPromise = agent.initialize(buildInitOptions(context));
     workspace.onDidChangeConfiguration(async (event) => {
       await initPromise;

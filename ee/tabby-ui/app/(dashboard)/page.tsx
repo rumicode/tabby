@@ -1,5 +1,13 @@
 'use client'
 
+import { PropsWithChildren, useEffect, useState } from 'react'
+
+import { graphql } from '@/lib/gql/generates'
+import { WorkerKind } from '@/lib/gql/generates/graphql'
+import { useHealth } from '@/lib/hooks/use-health'
+import { useWorkers } from '@/lib/hooks/use-workers'
+import { useSession } from '@/lib/tabby/auth'
+import { useGraphQLQuery } from '@/lib/tabby/gql'
 import { buttonVariants } from '@/components/ui/button'
 import {
   Dialog,
@@ -11,25 +19,23 @@ import {
 } from '@/components/ui/dialog'
 import { IconSlack } from '@/components/ui/icons'
 import { Separator } from '@/components/ui/separator'
-import { useHealth } from '@/lib/hooks/use-health'
-import { PropsWithChildren, useEffect, useState } from 'react'
-import WorkerCard from './components/worker-card'
-import { useWorkers } from '@/lib/hooks/use-workers'
-import { WorkerKind } from '@/lib/gql/generates/graphql'
-import { useGraphQL } from '@/lib/hooks/use-graphql'
-import { getRegistrationTokenDocument } from '@/lib/gql/request-documents'
 import { CopyButton } from '@/components/copy-button'
+
+import WorkerCard from './components/worker-card'
 
 const COMMUNITY_DIALOG_SHOWN_KEY = 'community-dialog-shown'
 
 export default function Home() {
+  const { status } = useSession()
   const [open, setOpen] = useState(false)
   useEffect(() => {
+    if (status !== 'authenticated') return
+
     if (!localStorage.getItem(COMMUNITY_DIALOG_SHOWN_KEY)) {
       setOpen(true)
       localStorage.setItem(COMMUNITY_DIALOG_SHOWN_KEY, 'true')
     }
-  }, [])
+  }, [status])
 
   return (
     <div className="p-4 lg:p-16">
@@ -75,10 +81,16 @@ function toBadgeString(str: string) {
   return encodeURIComponent(str.replaceAll('-', '--'))
 }
 
+const getRegistrationTokenDocument = graphql(/* GraphQL */ `
+  query GetRegistrationToken {
+    registrationToken
+  }
+`)
+
 function MainPanel() {
   const { data: healthInfo } = useHealth()
   const workers = useWorkers(healthInfo)
-  const { data: registrationTokenRes } = useGraphQL(
+  const { data: registrationTokenRes } = useGraphQLQuery(
     getRegistrationTokenDocument
   )
 
@@ -109,7 +121,8 @@ function MainPanel() {
 
         {!!registrationTokenRes?.registrationToken && (
           <div className="flex items-center gap-1">
-            Registeration token: <span className="text-sm rounded-lg text-red-600">
+            Registeration token:{' '}
+            <span className="text-sm rounded-lg text-red-600">
               {registrationTokenRes.registrationToken}
             </span>
             <CopyButton value={registrationTokenRes.registrationToken} />

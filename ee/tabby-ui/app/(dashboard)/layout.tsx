@@ -1,4 +1,7 @@
 import { Metadata } from 'next'
+
+import { Header } from '@/components/header'
+
 import Sidebar from './components/sidebar'
 
 export const metadata: Metadata = {
@@ -10,5 +13,12 @@ interface DashboardLayoutProps {
 }
 
 export default function RootLayout({ children }: DashboardLayoutProps) {
-  return <Sidebar className="flex-1">{children}</Sidebar>
+  return (
+    <>
+      <Header />
+      <main className="bg-muted/50 flex flex-1 flex-col">
+        <Sidebar className="flex-1">{children}</Sidebar>
+      </main>
+    </>
+  )
 }
