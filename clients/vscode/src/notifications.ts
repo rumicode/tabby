@@ -126,7 +126,7 @@ function showInformationWhenDisconnected(modal: boolean = false) {
 }
 
 function showInformationWhenUnauthorized() {
-  let message = "Tabby server requires authentication, ";
+  let message = "RumiCode server requires authentication, ";
   const currentToken = agent().getConfig()["server"]["token"].trim();
   if (currentToken.length > 0) {
     message += ` but the current token is invalid.`;
@@ -136,7 +136,7 @@ function showInformationWhenUnauthorized() {
   window.showWarningMessage(message, "Set Credentials").then((selection) => {
     switch (selection) {
       case "Set Credentials":
-        commands.executeCommand("tabby.setApiToken");
+        commands.executeCommand("rumicode.setApiToken");
         break;
     }
   });
@@ -146,7 +146,7 @@ function showInformationWhenUnauthorized() {
 function showInformationStartAuth(callbacks?: { onAuthStart?: () => void; onAuthEnd?: () => void }) {
   window
     .showWarningMessage(
-      "Tabby Server requires authorization. Continue to open authorization page in your browser.",
+      "RumiCode Server requires authorization. Continue to open authorization page in your browser.",
       "Continue",
       "Settings",
     )

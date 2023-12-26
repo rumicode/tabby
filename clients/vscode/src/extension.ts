@@ -9,7 +9,7 @@ import { TabbyStatusBarItem } from "./TabbyStatusBarItem";
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: ExtensionContext) {
-  console.debug("Activating Tabby extension", new Date());
+  console.debug("Activating RumiCode extension", new Date());
   await createAgentInstance(context);
   const completionProvider = new TabbyCompletionProvider();
   const statusBarItem = new TabbyStatusBarItem(context, completionProvider);
@@ -22,6 +22,6 @@ export async function activate(context: ExtensionContext) {
 
 // this method is called when your extension is deactivated
 export async function deactivate() {
-  console.debug("Deactivating Tabby extension", new Date());
+  console.debug("Deactivating RumiCode extension", new Date());
   await disposeAgentInstance();
 }

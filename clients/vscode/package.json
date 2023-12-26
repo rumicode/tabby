@@ -52,7 +52,7 @@
       },
       {
         "command": "rumicode.openTabbyAgentSettings",
-        "title": "RumiCode: Open Tabby Agent Settings"
+        "title": "RumiCode: Open RumiCode Agent Settings"
       },
       {
         "command": "rumicode.gettingStarted",
