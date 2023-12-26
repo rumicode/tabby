@@ -266,7 +266,7 @@ export class TabbyAgent extends EventEmitter implements Agent {
     prefix: string;
     suffix: string;
     clipboard?: string;
-    path?: string;
+    path: string | null;
   } {
     // max lines in prefix and suffix configurable
     const maxPrefixLines = this.config.completion.prompt.maxPrefixLines;

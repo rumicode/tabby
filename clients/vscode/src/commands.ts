@@ -1,21 +1,20 @@
+import { strict as assert } from "assert";
+import os from "os";
 import {
   ConfigurationTarget,
+  ExtensionContext,
   InputBoxValidationSeverity,
   ProgressLocation,
   Uri,
-  ThemeIcon,
-  ExtensionContext,
-  workspace,
-  window,
-  env,
   commands,
+  env,
+  window,
+  workspace,
 } from "vscode";
-import os from "os";
-import { strict as assert } from "assert";
-import { agent } from "./agent";
-import { notifications } from "./notifications";
 import { TabbyCompletionProvider } from "./TabbyCompletionProvider";
 import { TabbyStatusBarItem } from "./TabbyStatusBarItem";
+import { agent } from "./agent";
+import { notifications } from "./notifications";
 
 const configTarget = ConfigurationTarget.Global;
 

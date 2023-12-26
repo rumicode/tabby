@@ -16,6 +16,7 @@ import {
 import { EventEmitter } from "events";
 import { CompletionRequest, CompletionResponse, LogEventRequest } from "tabby-agent";
 import { agent } from "./agent";
+import { normalize } from "path";
 
 export class TabbyCompletionProvider extends EventEmitter implements InlineCompletionItemProvider {
   private triggerMode: "automatic" | "manual" | "disabled" = "automatic";
@@ -65,17 +66,10 @@ export class TabbyCompletionProvider extends EventEmitter implements InlineCompl
       return null;
     }
 
-    let path: string | null = null;
-    const workspaceFolders = workspace.workspaceFolders;
-    if (workspaceFolders) {
-      const projectRoot = workspaceFolders[0].uri.fsPath;
-      const fullPath = document.fileName;
-      path = fullPath.replace(projectRoot + "/", "");
-    }
     const additionalContext = this.buildAdditionalContext(document);
 
     const request: CompletionRequest = {
-      path,
+      path: normalize(workspace.asRelativePath(document.uri.fsPath)),
       filepath: document.uri.fsPath,
       language: document.languageId, // https://code.visualstudio.com/docs/languages/identifiers
       text: additionalContext.prefix + document.getText() + additionalContext.suffix,
