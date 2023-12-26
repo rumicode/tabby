@@ -1,8 +1,3 @@
-type RegisterResponse {
-  accessToken: String!
-  refreshToken: String!
-}
-
 enum WorkerKind {
   COMPLETION
   CHAT
@@ -10,6 +5,7 @@ enum WorkerKind {
 
 type Mutation {
   resetRegistrationToken: String!
+  resetUserAuthToken: Boolean!
   register(email: String!, password1: String!, password2: String!, invitationCode: String): RegisterResponse!
   tokenAuth(email: String!, password: String!): TokenAuthResponse!
   verifyToken(token: String!): VerifyTokenResponse!
@@ -18,19 +14,28 @@ type Mutation {
   deleteInvitation(id: Int!): Int!
 }
 
-type VerifyTokenResponse {
-  claims: Claims!
-}
+"DateTime"
+scalar DateTimeUtc
 
-type UserInfo {
-  email: String!
+type JWTPayload {
+  "Expiration time (as UTC timestamp)"
+  exp: Float!
+  "Issued at (as UTC timestamp)"
+  iat: Float!
+  "User email address"
+  sub: String!
+  "Whether the user is admin."
   isAdmin: Boolean!
 }
 
-type Claims {
-  exp: Float!
-  iat: Float!
-  user: UserInfo!
+type JobRun {
+  id: ID!
+  jobName: String!
+  startTime: DateTimeUtc!
+  finishTime: DateTimeUtc
+  exitCode: Int
+  stdout: String!
+  stderr: String!
 }
 
 type Query {
@@ -38,7 +43,48 @@ type Query {
   registrationToken: String!
   isAdminInitialized: Boolean!
   invitations: [Invitation!]!
-  me: UserInfo!
+  me: User!
+  users: [User!]!
+  usersNext(after: String, before: String, first: Int, last: Int): UserConnection!
+  invitationsNext(after: String, before: String, first: Int, last: Int): InvitationConnection!
+  jobRuns(after: String, before: String, first: Int, last: Int): JobRunConnection!
+}
+
+type UserEdge {
+  node: User!
+  cursor: String!
+}
+
+type JobRunConnection {
+  edges: [JobRunEdge!]!
+  pageInfo: PageInfo!
+}
+
+type RefreshTokenResponse {
+  accessToken: String!
+  refreshToken: String!
+  refreshExpiresAt: DateTimeUtc!
+}
+
+type RegisterResponse {
+  accessToken: String!
+  refreshToken: String!
+}
+
+type InvitationNext {
+  id: ID!
+  email: String!
+  code: String!
+  createdAt: String!
+}
+
+type UserConnection {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+}
+
+type VerifyTokenResponse {
+  claims: JWTPayload!
 }
 
 type Invitation {
@@ -46,6 +92,14 @@ type Invitation {
   email: String!
   code: String!
   createdAt: String!
+}
+
+type User {
+  id: ID!
+  email: String!
+  isAdmin: Boolean!
+  authToken: String!
+  createdAt: DateTimeUtc!
 }
 
 type Worker {
@@ -59,15 +113,31 @@ type Worker {
   cudaDevices: [String!]!
 }
 
+type InvitationEdge {
+  node: InvitationNext!
+  cursor: String!
+}
+
 type TokenAuthResponse {
   accessToken: String!
   refreshToken: String!
 }
 
-type RefreshTokenResponse {
-  accessToken: String!
-  refreshToken: String!
-  refreshExpiresAt: Float!
+type PageInfo {
+  hasPreviousPage: Boolean!
+  hasNextPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type JobRunEdge {
+  node: JobRun!
+  cursor: String!
+}
+
+type InvitationConnection {
+  edges: [InvitationEdge!]!
+  pageInfo: PageInfo!
 }
 
 schema {

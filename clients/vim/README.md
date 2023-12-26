@@ -1,7 +1,7 @@
 # Tabby Plugin for Vim and NeoVim
 
 Tabby is a self-hosted AI coding assistant that can suggest multi-line code or full functions in real-time. For more information, please check out our [website](https://tabbyml.com/) and [github](https://github.com/TabbyML/tabby).  
-If you encounter any problem or have any suggestion, please [open an issue](https://github.com/TabbyML/tabby/issues/new) or join our [Slack community](https://join.slack.com/t/tabbycommunity/shared_invite/zt-1xeiddizp-bciR2RtFTaJ37RBxr8VxpA) for support.
+If you encounter any problem or have any suggestion, please [open an issue](https://github.com/TabbyML/tabby/issues/new) or join our [Slack community](https://links.tabbyml.com/join-slack) for support.
 
 ## Table of Contents
 
@@ -116,13 +116,16 @@ In insert mode, Tabby plugin will show inline completion automatically when you 
 
 You need to start the Tabby server before using the plugin. For Tabby server installation, please refer to this [documentation](https://tabby.tabbyml.com/docs/installation/).
 
-If your Tabby server endpoint is different from the default `http://localhost:8080`, please set the endpoint in `~/.tabby-client/agent/config.toml`.
+If your Tabby server endpoint is different from the default `http://localhost:8080`, please set the endpoint in `~/.tabby-client/agent/config.toml`. 
+
+If your Tabby server requires an authentication token, remember to set it here.
 
 ```toml
 # Server
 # You can set the server endpoint here.
 [server]
 endpoint = "http://localhost:8080" # http or https URL
+token = "your-auth-token"
 ```
 
 ### Node.js Binary Path

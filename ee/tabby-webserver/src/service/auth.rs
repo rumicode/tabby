@@ -1,17 +1,19 @@
-use anyhow::Result;
+use std::borrow::Cow;
+
+use anyhow::{anyhow, Result};
 use argon2::{
     password_hash,
     password_hash::{rand_core::OsRng, SaltString},
     Argon2, PasswordHasher, PasswordVerifier,
 };
 use async_trait::async_trait;
-use validator::Validate;
+use validator::{Validate, ValidationError};
 
 use super::db::DbConn;
 use crate::schema::auth::{
-    generate_jwt, generate_refresh_token, validate_jwt, AuthenticationService, Claims, Invitation,
-    RefreshTokenError, RefreshTokenResponse, RegisterError, RegisterResponse, TokenAuthError,
-    TokenAuthResponse, UserInfo, VerifyTokenResponse,
+    generate_jwt, generate_refresh_token, validate_jwt, AuthenticationService, Invitation,
+    InvitationNext, JWTPayload, JobRun, RefreshTokenError, RefreshTokenResponse, RegisterError,
+    RegisterResponse, TokenAuthError, TokenAuthResponse, User, VerifyTokenResponse,
 };
 
 /// Input parameters for register mutation
@@ -38,12 +40,8 @@ struct RegisterInput {
         code = "password1",
         message = "Password must be at most 20 characters"
     ))]
+    #[validate(custom = "validate_password")]
     password1: String,
-    #[validate(length(
-        min = 8,
-        code = "password2",
-        message = "Password must be at least 8 characters"
-    ))]
     #[validate(must_match(
         code = "password2",
         message = "Passwords do not match",
@@ -65,6 +63,38 @@ impl std::fmt::Debug for RegisterInput {
             .field("password2", &"********")
             .finish()
     }
+}
+
+fn validate_password(value: &str) -> Result<(), ValidationError> {
+    let make_validation_error = |message: &'static str| {
+        let mut err = ValidationError::new("password1");
+        err.message = Some(Cow::Borrowed(message));
+        Err(err)
+    };
+
+    let contains_lowercase = value.chars().any(|x| x.is_ascii_lowercase());
+    if !contains_lowercase {
+        return make_validation_error("Password should contains at least one lowercase character");
+    }
+
+    let contains_uppercase = value.chars().any(|x| x.is_ascii_uppercase());
+    if !contains_uppercase {
+        return make_validation_error("Password should contains at least one uppercase character");
+    }
+
+    let contains_digit = value.chars().any(|x| x.is_ascii_digit());
+    if !contains_digit {
+        return make_validation_error("Password should contains at least one numeric character");
+    }
+
+    let contains_special_char = value.chars().any(|x| x.is_ascii_punctuation());
+    if !contains_special_char {
+        return make_validation_error(
+            "Password should contains at least one special character, e.g @#$%^&{}",
+        );
+    }
+
+    Ok(())
 }
 
 /// Input parameters for token_auth mutation
@@ -117,7 +147,7 @@ impl AuthenticationService for DbConn {
         input.validate()?;
 
         let is_admin_initialized = self.is_admin_initialized().await?;
-        if is_admin_initialized {
+        let invitation = if is_admin_initialized {
             let err = Err(RegisterError::InvalidInvitationCode);
             let Some(invitation_code) = invitation_code else {
                 return err;
@@ -130,6 +160,10 @@ impl AuthenticationService for DbConn {
             if invitation.email != input.email {
                 return err;
             }
+
+            Some(invitation)
+        } else {
+            None
         };
 
         // check if email exists
@@ -141,18 +175,26 @@ impl AuthenticationService for DbConn {
             return Err(RegisterError::Unknown);
         };
 
-        let id = self
-            .create_user(input.email.clone(), pwd_hash, !is_admin_initialized)
-            .await?;
+        let id = if let Some(invitation) = invitation {
+            self.create_user_with_invitation(
+                input.email.clone(),
+                pwd_hash,
+                !is_admin_initialized,
+                invitation.id,
+            )
+            .await?
+        } else {
+            self.create_user(input.email.clone(), pwd_hash, !is_admin_initialized)
+                .await?
+        };
+
         let user = self.get_user(id).await?.unwrap();
 
         let refresh_token = generate_refresh_token();
         self.create_refresh_token(id, &refresh_token).await?;
 
-        let Ok(access_token) = generate_jwt(Claims::new(UserInfo::new(
-            user.email.clone(),
-            user.is_admin,
-        ))) else {
+        let Ok(access_token) = generate_jwt(JWTPayload::new(user.email.clone(), user.is_admin))
+        else {
             return Err(RegisterError::Unknown);
         };
 
@@ -179,10 +221,8 @@ impl AuthenticationService for DbConn {
         let refresh_token = generate_refresh_token();
         self.create_refresh_token(user.id, &refresh_token).await?;
 
-        let Ok(access_token) = generate_jwt(Claims::new(UserInfo::new(
-            user.email.clone(),
-            user.is_admin,
-        ))) else {
+        let Ok(access_token) = generate_jwt(JWTPayload::new(user.email.clone(), user.is_admin))
+        else {
             return Err(TokenAuthError::Unknown);
         };
 
@@ -208,10 +248,8 @@ impl AuthenticationService for DbConn {
         self.replace_refresh_token(&token, &new_token).await?;
 
         // refresh token update is done, generate new access token based on user info
-        let Ok(access_token) = generate_jwt(Claims::new(UserInfo::new(
-            user.email.clone(),
-            user.is_admin,
-        ))) else {
+        let Ok(access_token) = generate_jwt(JWTPayload::new(user.email.clone(), user.is_admin))
+        else {
             return Err(RefreshTokenError::Unknown);
         };
 
@@ -231,6 +269,15 @@ impl AuthenticationService for DbConn {
         Ok(!admin.is_empty())
     }
 
+    async fn get_user_by_email(&self, email: &str) -> Result<User> {
+        let user = self.get_user_by_email(email).await?;
+        if let Some(user) = user {
+            Ok(user.into())
+        } else {
+            Err(anyhow!("User not found {}", email))
+        }
+    }
+
     async fn create_invitation(&self, email: String) -> Result<i32> {
         self.create_invitation(email).await
     }
@@ -241,6 +288,87 @@ impl AuthenticationService for DbConn {
 
     async fn delete_invitation(&self, id: i32) -> Result<i32> {
         self.delete_invitation(id).await
+    }
+
+    async fn reset_user_auth_token(&self, email: &str) -> Result<()> {
+        self.reset_user_auth_token_by_email(email).await
+    }
+
+    async fn list_users(&self) -> Result<Vec<User>> {
+        let users = self.list_users().await?;
+        Ok(users.into_iter().map(|x| x.into()).collect())
+    }
+
+    async fn list_users_in_page(
+        &self,
+        after: Option<String>,
+        before: Option<String>,
+        first: Option<usize>,
+        last: Option<usize>,
+    ) -> Result<Vec<User>> {
+        let users = match (first, last) {
+            (Some(first), None) => {
+                let after = after.map(|x| x.parse::<i32>()).transpose()?;
+                self.list_users_with_filter(Some(first), after, false)
+                    .await?
+            }
+            (None, Some(last)) => {
+                let before = before.map(|x| x.parse::<i32>()).transpose()?;
+                self.list_users_with_filter(Some(last), before, true)
+                    .await?
+            }
+            _ => self.list_users().await?,
+        };
+
+        Ok(users.into_iter().map(|x| x.into()).collect())
+    }
+
+    async fn list_invitations_in_page(
+        &self,
+        after: Option<String>,
+        before: Option<String>,
+        first: Option<usize>,
+        last: Option<usize>,
+    ) -> Result<Vec<InvitationNext>> {
+        let invitations = match (first, last) {
+            (Some(first), None) => {
+                let after = after.map(|x| x.parse::<i32>()).transpose()?;
+                self.list_invitations_with_filter(Some(first), after, false)
+                    .await?
+            }
+            (None, Some(last)) => {
+                let before = before.map(|x| x.parse::<i32>()).transpose()?;
+                self.list_invitations_with_filter(Some(last), before, true)
+                    .await?
+            }
+            _ => self.list_invitations().await?,
+        };
+
+        Ok(invitations.into_iter().map(|x| x.into()).collect())
+    }
+
+    async fn list_job_runs(
+        &self,
+        after: Option<String>,
+        before: Option<String>,
+        first: Option<usize>,
+        last: Option<usize>,
+    ) -> Result<Vec<JobRun>> {
+        let runs = match (first, last) {
+            (Some(first), None) => {
+                let after = after.map(|x| x.parse::<i32>()).transpose()?;
+                self.list_job_runs_with_filter(Some(first), after, false)
+                    .await?
+            }
+            (None, Some(last)) => {
+                let before = before.map(|x| x.parse::<i32>()).transpose()?;
+                self.list_job_runs_with_filter(Some(last), before, true)
+                    .await?
+            }
+            _ => self.list_job_runs_with_filter(None, None, false).await?,
+        };
+
+        Ok(runs.into_iter().map(|x| x.into()).collect())
     }
 }
 
@@ -286,7 +414,7 @@ mod tests {
     }
 
     static ADMIN_EMAIL: &str = "test@example.com";
-    static ADMIN_PASSWORD: &str = "123456789";
+    static ADMIN_PASSWORD: &str = "123456789$acR";
 
     async fn register_admin_user(conn: &DbConn) -> RegisterResponse {
         conn.register(
@@ -336,7 +464,7 @@ mod tests {
         register_admin_user(&conn).await;
 
         let email = "user@user.com";
-        let password = "12345678";
+        let password = "12345678dD^";
 
         conn.create_invitation(email.to_owned()).await.unwrap();
         let invitation = &conn.list_invitations().await.unwrap()[0];
@@ -385,8 +513,11 @@ mod tests {
                 Some(invitation.code.clone())
             )
             .await,
-            Err(RegisterError::DuplicateEmail)
+            Err(RegisterError::InvalidInvitationCode)
         );
+
+        // Used invitation should have been deleted,  following delete attempt should fail.
+        assert!(conn.delete_invitation(invitation.id).await.is_err());
     }
 
     #[tokio::test]
@@ -406,5 +537,17 @@ mod tests {
             .unwrap();
         // expire time should be no change
         assert_eq!(resp1.refresh_expires_at, resp2.refresh_expires_at);
+    }
+
+    #[tokio::test]
+    async fn test_reset_user_auth_token() {
+        let conn = DbConn::new_in_memory().await.unwrap();
+        register_admin_user(&conn).await;
+
+        let user = conn.get_user_by_email(ADMIN_EMAIL).await.unwrap().unwrap();
+        conn.reset_user_auth_token(&user.email).await.unwrap();
+
+        let user2 = conn.get_user_by_email(ADMIN_EMAIL).await.unwrap().unwrap();
+        assert_ne!(user.auth_token, user2.auth_token);
     }
 }

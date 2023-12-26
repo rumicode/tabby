@@ -125,6 +125,24 @@ function showInformationWhenDisconnected(modal: boolean = false) {
   }
 }
 
+function showInformationWhenUnauthorized() {
+  let message = "Tabby server requires authentication, ";
+  const currentToken = agent().getConfig()["server"]["token"].trim();
+  if (currentToken.length > 0) {
+    message += ` but the current token is invalid.`;
+  } else {
+    message += ` please set your personal token.`;
+  }
+  window.showWarningMessage(message, "Set Credentials").then((selection) => {
+    switch (selection) {
+      case "Set Credentials":
+        commands.executeCommand("tabby.setApiToken");
+        break;
+    }
+  });
+}
+
+/** @deprecated Tabby Cloud auth */
 function showInformationStartAuth(callbacks?: { onAuthStart?: () => void; onAuthEnd?: () => void }) {
   window
     .showWarningMessage(
@@ -143,14 +161,17 @@ function showInformationStartAuth(callbacks?: { onAuthStart?: () => void; onAuth
     });
 }
 
+/** @deprecated Tabby Cloud auth */
 function showInformationAuthSuccess() {
   window.showInformationMessage("Congrats, you're authorized, start to use Tabby now.");
 }
 
+/** @deprecated Tabby Cloud auth */
 function showInformationWhenStartAuthButAlreadyAuthorized() {
   window.showInformationMessage("You are already authorized now.");
 }
 
+/** @deprecated Tabby Cloud auth */
 function showInformationWhenAuthFailed() {
   window.showWarningMessage("Cannot connect to server. Please check settings.", "Settings").then((selection) => {
     switch (selection) {
@@ -166,7 +187,7 @@ function getHelpMessageForCompletionResponseTimeIssue() {
   const serverHealthState = agent().getServerHealthState();
   if (serverHealthState?.device === "cpu" && serverHealthState?.model?.match(/[0-9.]+B$/)) {
     helpMessageForRunningLargeModelOnCPU +=
-      `Your Tabby server is running model ${serverHealthState?.model} on CPU. ` +
+      `Your RumiCode server is running model ${serverHealthState?.model} on CPU. ` +
       "This model may be performing poorly due to its large parameter size, please consider trying smaller models or switch to GPU. " +
       "You can find a list of recommend models in the online documentation.\n";
   }
@@ -181,7 +202,7 @@ function getHelpMessageForCompletionResponseTimeIssue() {
   }
   if (!(host.startsWith("localhost") || host.startsWith("127.0.0.1"))) {
     commonHelpMessage += " - A poor network connection. Please check your network and proxy settings.\n";
-    commonHelpMessage += " - Server overload. Please contact your Tabby server administrator for assistance.\n";
+    commonHelpMessage += " - Server overload. Please contact RumiCode server administrator for assistance.\n";
   }
   let message = "";
   if (helpMessageForRunningLargeModelOnCPU.length > 0) {
@@ -301,6 +322,7 @@ export const notifications = {
   showInformationWhenManualTriggerLoading,
   showInformationWhenInlineSuggestDisabled,
   showInformationWhenDisconnected,
+  showInformationWhenUnauthorized,
   showInformationStartAuth,
   showInformationAuthSuccess,
   showInformationWhenStartAuthButAlreadyAuthorized,

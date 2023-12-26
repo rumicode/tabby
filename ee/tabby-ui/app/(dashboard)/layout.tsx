@@ -5,7 +5,10 @@ import { Header } from '@/components/header'
 import Sidebar from './components/sidebar'
 
 export const metadata: Metadata = {
-  title: 'Dashboard'
+  title: {
+    default: 'Home',
+    template: `Tabby - %s`
+  }
 }
 
 interface DashboardLayoutProps {
@@ -16,7 +19,7 @@ export default function RootLayout({ children }: DashboardLayoutProps) {
   return (
     <>
       <Header />
-      <main className="bg-muted/50 flex flex-1 flex-col">
+      <main className="flex flex-1 flex-col">
         <Sidebar className="flex-1">{children}</Sidebar>
       </main>
     </>

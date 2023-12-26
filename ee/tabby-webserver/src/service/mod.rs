@@ -17,7 +17,7 @@ use hyper::{client::HttpConnector, Body, Client, StatusCode};
 use tabby_common::api::{code::CodeSearch, event::RawEventLogger};
 use tracing::{info, warn};
 
-use self::db::DbConn;
+use self::{cron::run_cron, db::DbConn};
 use crate::schema::{
     auth::AuthenticationService,
     worker::{RegisterWorkerError, Worker, WorkerKind, WorkerService},
@@ -36,11 +36,13 @@ struct ServerContext {
 
 impl ServerContext {
     pub async fn new(logger: Arc<dyn RawEventLogger>, code: Arc<dyn CodeSearch>) -> Self {
+        let db_conn = DbConn::new().await.unwrap();
+        run_cron(&db_conn);
         Self {
             client: Client::default(),
             completion: worker::WorkerGroup::default(),
             chat: worker::WorkerGroup::default(),
-            db_conn: DbConn::new().await.unwrap(),
+            db_conn,
             logger,
             code,
         }
@@ -48,10 +50,7 @@ impl ServerContext {
 
     async fn authorize_request(&self, request: &Request<Body>) -> bool {
         let path = request.uri().path();
-        if (path.starts_with("/v1/") || path.starts_with("/v1beta/"))
-           // Authorization is enabled
-           && self.db_conn.is_admin_initialized().await.unwrap_or(false)
-        {
+        if path.starts_with("/v1/") || path.starts_with("/v1beta/") {
             let token = {
                 let authorization = request
                     .headers()

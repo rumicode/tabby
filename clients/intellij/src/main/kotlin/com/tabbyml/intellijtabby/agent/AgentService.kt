@@ -11,6 +11,7 @@ import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationInfo
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.invokeLater
 import com.intellij.openapi.components.Service
@@ -18,10 +19,15 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.extensions.PluginId
+import com.intellij.openapi.keymap.Keymap
+import com.intellij.openapi.keymap.KeymapManagerListener
+import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
+import com.tabbyml.intellijtabby.settings.ApplicationConfigurable
 import com.tabbyml.intellijtabby.settings.ApplicationSettingsState
+import com.tabbyml.intellijtabby.settings.KeymapSettings
 import io.ktor.util.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -33,8 +39,11 @@ class AgentService : Disposable {
   val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 
   private var initFailedNotification: Notification? = null
+
+  @Deprecated("Tabby Cloud auth support will be removed.")
   var authNotification: Notification? = null
     private set
+
   var issueNotification: Notification? = null
     private set
 
@@ -60,6 +69,7 @@ class AgentService : Disposable {
 
   init {
     val settings = service<ApplicationSettingsState>()
+    val keymapSettings = service<KeymapSettings>()
     scope.launch {
       val config = createAgentConfig(settings.data)
       val clientProperties = createClientProperties(settings.data)
@@ -100,6 +110,12 @@ class AgentService : Disposable {
     }
 
     scope.launch {
+      settings.serverTokenState.collect {
+        setToken(it)
+      }
+    }
+
+    scope.launch {
       settings.completionTriggerModeState.collect {
         updateClientProperties("user", "intellij.triggerMode", it)
       }
@@ -111,28 +127,60 @@ class AgentService : Disposable {
       }
     }
 
+    var keymapAttributeUpdateJob: Job? = null
+    ApplicationManager.getApplication().messageBus.connect().subscribe(
+      KeymapManagerListener.TOPIC,
+      object : KeymapManagerListener {
+        override fun shortcutChanged(keymap: Keymap, actionId: String) {
+          if (actionId.startsWith("Tabby.")) {
+            keymapAttributeUpdateJob?.cancel()
+            keymapAttributeUpdateJob = scope.launch {
+              // there will be many shortcutChanged events at once, so we debounce them
+              delay(1000)
+              val style = keymapSettings.getCurrentKeymapStyle()
+              logger.info("Updated keymap style: $style")
+              updateClientProperties("user", "intellij.keymapStyle", style)
+            }
+          }
+        }
+      }
+    )
+
     scope.launch {
       agent.authRequiredEvent.collect {
         logger.info("Will show auth required notification.")
+        val currentToken = getConfig().server?.token
+        val message = if (currentToken?.isNotBlank() == true) {
+          "Tabby server requires authentication, but the current token is invalid."
+        } else {
+          "Tabby server requires authentication, please set your personal token."
+        }
         val notification = Notification(
           "com.tabbyml.intellijtabby.notification.warning",
-          "Authorization required for Tabby server",
+          message,
           NotificationType.WARNING,
         )
-        notification.addAction(ActionManager.getInstance().getAction("Tabby.OpenAuthPage"))
+        notification.addAction(object : AnAction("Open Settings...") {
+          override fun actionPerformed(e: AnActionEvent) {
+            issueNotification?.expire()
+            ShowSettingsUtil.getInstance().showSettingsDialog(e.project, ApplicationConfigurable::class.java)
+          }
+        })
         invokeLater {
-          authNotification?.expire()
-          authNotification = notification
+          issueNotification?.expire()
+          issueNotification = notification
           Notifications.Bus.notify(notification)
         }
       }
     }
 
-
     scope.launch {
       agent.status.collect { status ->
         if (status == Agent.Status.READY) {
           completionResponseWarningShown = false
+          invokeLater {
+            issueNotification?.expire()
+          }
         }
       }
     }
@@ -191,9 +239,10 @@ class AgentService : Disposable {
 
   private fun createAgentConfig(state: ApplicationSettingsState.State): Agent.Config {
     return Agent.Config(
-      server = if (state.serverEndpoint.isNotBlank()) {
+      server = if (state.serverEndpoint.isNotBlank() || state.serverToken.isNotBlank()) {
         Agent.Config.Server(
-          endpoint = state.serverEndpoint,
+          endpoint = state.serverEndpoint.ifBlank { null },
+          token = state.serverToken.ifBlank { null },
         )
       } else {
         null
@@ -219,6 +268,7 @@ class AgentService : Disposable {
       user = mapOf(
         "intellij" to mapOf(
           "triggerMode" to state.completionTriggerMode,
+          "keymapStyle" to "unknown", // FIXME: At initialization, we cannot get the correct keymap style. It will be updated later.
         ),
       ),
       session = mapOf(
@@ -248,11 +298,19 @@ class AgentService : Disposable {
     agent.clearConfig(key)
   }
 
-  suspend fun setEndpoint(endpoint: String) {
+  private suspend fun setEndpoint(endpoint: String) {
     if (endpoint.isNotBlank()) {
       updateConfig("server.endpoint", endpoint)
     } else {
       clearConfig("server.endpoint")
+    }
+  }
+
+  private suspend fun setToken(token: String) {
+    if (token.isNotBlank()) {
+      updateConfig("server.token", token)
+    } else {
+      clearConfig("server.token")
     }
   }
 
@@ -285,6 +343,7 @@ class AgentService : Disposable {
     agent.postEvent(event)
   }
 
+  @Deprecated("Tabby Cloud auth support will be removed.")
   suspend fun requestAuth(progress: ProgressIndicator) {
     waitForInitialized()
     progress.isIndeterminate = true

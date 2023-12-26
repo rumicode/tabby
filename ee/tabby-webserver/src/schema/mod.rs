@@ -5,23 +5,21 @@ use std::sync::Arc;
 
 use auth::AuthenticationService;
 use juniper::{
-    graphql_object, graphql_value, EmptySubscription, FieldError, IntoFieldError, Object, RootNode,
-    ScalarValue, Value,
+    graphql_object, graphql_value, EmptySubscription, FieldError, FieldResult, IntoFieldError,
+    Object, RootNode, ScalarValue, Value,
 };
-use juniper_axum::FromAuth;
+use juniper_axum::{relay, FromAuth};
 use tabby_common::api::{code::CodeSearch, event::RawEventLogger};
+use tracing::error;
 use validator::ValidationErrors;
 
-use self::{
-    auth::{validate_jwt, Invitation, RegisterError, TokenAuthError},
-    worker::WorkerService,
-};
 use crate::schema::{
     auth::{
-        RefreshTokenError, RefreshTokenResponse, RegisterResponse, TokenAuthResponse, UserInfo,
+        validate_jwt, Invitation, InvitationNext, JobRun, RefreshTokenError, RefreshTokenResponse,
+        RegisterError, RegisterResponse, TokenAuthError, TokenAuthResponse, User,
         VerifyTokenResponse,
     },
-    worker::Worker,
+    worker::{Worker, WorkerService},
 };
 
 pub trait ServiceLocator: Send + Sync {
@@ -32,7 +30,7 @@ pub trait ServiceLocator: Send + Sync {
 }
 
 pub struct Context {
-    claims: Option<auth::Claims>,
+    claims: Option<auth::JWTPayload>,
     locator: Arc<dyn ServiceLocator>,
 }
 
@@ -72,36 +70,27 @@ pub struct Query;
 #[graphql_object(context = Context)]
 impl Query {
     async fn workers(ctx: &Context) -> Result<Vec<Worker>> {
-        if ctx.locator.auth().is_admin_initialized().await? {
-            if let Some(claims) = &ctx.claims {
-                if claims.user_info().is_admin() {
-                    let workers = ctx.locator.worker().list_workers().await;
-                    return Ok(workers);
-                }
+        if let Some(claims) = &ctx.claims {
+            if claims.is_admin {
+                let workers = ctx.locator.worker().list_workers().await;
+                return Ok(workers);
             }
-            Err(CoreError::Unauthorized(
-                "Only admin is able to read workers",
-            ))
-        } else {
-            Ok(ctx.locator.worker().list_workers().await)
         }
+        Err(CoreError::Unauthorized(
+            "Only admin is able to read workers",
+        ))
     }
 
     async fn registration_token(ctx: &Context) -> Result<String> {
-        if ctx.locator.auth().is_admin_initialized().await? {
-            if let Some(claims) = &ctx.claims {
-                if claims.user_info().is_admin() {
-                    let token = ctx.locator.worker().read_registration_token().await?;
-                    return Ok(token);
-                }
+        if let Some(claims) = &ctx.claims {
+            if claims.is_admin {
+                let token = ctx.locator.worker().read_registration_token().await?;
+                return Ok(token);
             }
-            Err(CoreError::Unauthorized(
-                "Only admin is able to read registeration_token",
-            ))
-        } else {
-            let token = ctx.locator.worker().read_registration_token().await?;
-            Ok(token)
         }
+        Err(CoreError::Unauthorized(
+            "Only admin is able to read registeration_token",
+        ))
     }
 
     async fn is_admin_initialized(ctx: &Context) -> Result<bool> {
@@ -110,7 +99,7 @@ impl Query {
 
     async fn invitations(ctx: &Context) -> Result<Vec<Invitation>> {
         if let Some(claims) = &ctx.claims {
-            if claims.user_info().is_admin() {
+            if claims.is_admin {
                 return Ok(ctx.locator.auth().list_invitations().await?);
             }
         }
@@ -119,11 +108,124 @@ impl Query {
         ))
     }
 
-    async fn me(ctx: &Context) -> Result<UserInfo> {
+    async fn me(ctx: &Context) -> Result<User> {
         if let Some(claims) = &ctx.claims {
-            return Ok(claims.user_info().to_owned());
+            let user = ctx.locator.auth().get_user_by_email(&claims.sub).await?;
+            Ok(user)
+        } else {
+            Err(CoreError::Unauthorized("Not logged in"))
         }
-        Err(CoreError::Unauthorized("Not logged in"))
+    }
+
+    async fn users(ctx: &Context) -> Result<Vec<User>> {
+        if let Some(claims) = &ctx.claims {
+            if claims.is_admin {
+                return Ok(ctx.locator.auth().list_users().await?);
+            }
+        }
+        Err(CoreError::Unauthorized("Only admin is able to query users"))
+    }
+
+    async fn usersNext(
+        ctx: &Context,
+        after: Option<String>,
+        before: Option<String>,
+        first: Option<i32>,
+        last: Option<i32>,
+    ) -> FieldResult<relay::Connection<User>> {
+        if let Some(claims) = &ctx.claims {
+            if claims.is_admin {
+                return relay::query_async(
+                    after,
+                    before,
+                    first,
+                    last,
+                    |after, before, first, last| async move {
+                        match ctx
+                            .locator
+                            .auth()
+                            .list_users_in_page(after, before, first, last)
+                            .await
+                        {
+                            Ok(users) => Ok(users),
+                            Err(err) => Err(FieldError::from(err)),
+                        }
+                    },
+                )
+                .await;
+            }
+        }
+        Err(FieldError::from(CoreError::Unauthorized(
+            "Only admin is able to query users",
+        )))
+    }
+
+    async fn invitationsNext(
+        ctx: &Context,
+        after: Option<String>,
+        before: Option<String>,
+        first: Option<i32>,
+        last: Option<i32>,
+    ) -> FieldResult<relay::Connection<InvitationNext>> {
+        if let Some(claims) = &ctx.claims {
+            if claims.is_admin {
+                return relay::query_async(
+                    after,
+                    before,
+                    first,
+                    last,
+                    |after, before, first, last| async move {
+                        match ctx
+                            .locator
+                            .auth()
+                            .list_invitations_in_page(after, before, first, last)
+                            .await
+                        {
+                            Ok(invitations) => Ok(invitations),
+                            Err(err) => Err(FieldError::from(err)),
+                        }
+                    },
+                )
+                .await;
+            }
+        }
+        Err(FieldError::from(CoreError::Unauthorized(
+            "Only admin is able to query users",
+        )))
+    }
+
+    async fn job_runs(
+        ctx: &Context,
+        after: Option<String>,
+        before: Option<String>,
+        first: Option<i32>,
+        last: Option<i32>,
+    ) -> FieldResult<relay::Connection<JobRun>> {
+        if let Some(claims) = &ctx.claims {
+            if claims.is_admin {
+                return relay::query_async(
+                    after,
+                    before,
+                    first,
+                    last,
+                    |after, before, first, last| async move {
+                        match ctx
+                            .locator
+                            .auth()
+                            .list_job_runs(after, before, first, last)
+                            .await
+                        {
+                            Ok(job_runs) => Ok(job_runs),
+                            Err(err) => Err(FieldError::from(err)),
+                        }
+                    },
+                )
+                .await;
+            }
+        }
+        Err(FieldError::from(CoreError::Unauthorized(
+            "Only admin is able to query job runs",
+        )))
     }
 }
 
@@ -134,7 +236,7 @@ pub struct Mutation;
 impl Mutation {
     async fn reset_registration_token(ctx: &Context) -> Result<String> {
         if let Some(claims) = &ctx.claims {
-            if claims.user_info().is_admin() {
+            if claims.is_admin {
                 let reg_token = ctx.locator.worker().reset_registration_token().await?;
                 return Ok(reg_token);
             }
@@ -142,6 +244,18 @@ impl Mutation {
         Err(CoreError::Unauthorized(
             "Only admin is able to reset registration token",
         ))
+    }
+
+    async fn reset_user_auth_token(ctx: &Context) -> Result<bool> {
+        if let Some(claims) = &ctx.claims {
+            ctx.locator
+                .auth()
+                .reset_user_auth_token(&claims.sub)
+                .await?;
+            Ok(true)
+        } else {
+            Err(CoreError::Unauthorized("You're not logged in"))
+        }
     }
 
     async fn register(
@@ -178,7 +292,7 @@ impl Mutation {
 
     async fn create_invitation(ctx: &Context, email: String) -> Result<i32> {
         if let Some(claims) = &ctx.claims {
-            if claims.user_info().is_admin() {
+            if claims.is_admin {
                 return Ok(ctx.locator.auth().create_invitation(email).await?);
             }
         }
@@ -189,7 +303,7 @@ impl Mutation {
 
     async fn delete_invitation(ctx: &Context, id: i32) -> Result<i32> {
         if let Some(claims) = &ctx.claims {
-            if claims.user_info().is_admin() {
+            if claims.is_admin {
                 return Ok(ctx.locator.auth().delete_invitation(id).await?);
             }
         }

@@ -11,17 +11,20 @@ Tabby server will look for a configuration file at `~/.tabby/config.toml` for ad
 To enable repository level context for code completion, you can add the following to your configuration file:
 
 ```toml title="~/.tabby/config.toml"
-# Index two repositories' source code as additional context for code completion.
+# Index three repositories' source code as additional context for code completion.
 
 [[repositories]]
+name = "tabby"
 git_url = "https://github.com/TabbyML/tabby.git"
 
 # git through ssh protocol.
 [[repositories]]
+name = "CTranslate2"
 git_url = "git@github.com:OpenNMT/CTranslate2.git"
 
 # local directory is also supported!
 [[repositories]]
+name = "repository_a"
 git_url = "file:///home/users/repository_a"
 ```
 
@@ -105,7 +108,7 @@ struct HealthState {
 }
 ```
 
-For an up-to-date list of the fields we have collected, please refer to [health.rs](https://github.com/TabbyML/tabby/blob/main/crates/tabby/src/serve/health.rs#L11).
+For an up-to-date list of the fields we have collected, please refer to [health.rs](https://github.com/TabbyML/tabby/blob/main/crates/tabby/src/services/health.rs#L11).
 
 ### How to disable it
 To disable usage collection, set the `TABBY_DISABLE_USAGE_COLLECTION` environment variable by `export TABBY_DISABLE_USAGE_COLLECTION=1`.

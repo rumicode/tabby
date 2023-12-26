@@ -32,24 +32,55 @@ impl DbConn {
         Ok(invitations)
     }
 
+    pub async fn list_invitations_with_filter(
+        &self,
+        limit: Option<usize>,
+        skip_id: Option<i32>,
+        backwards: bool,
+    ) -> Result<Vec<Invitation>> {
+        let query = Self::make_pagination_query(
+            "invitations",
+            &["id", "email", "code", "created_at"],
+            limit,
+            skip_id,
+            backwards,
+        );
+
+        let invitations = self
+            .conn
+            .call(move |c| {
+                let mut stmt = c.prepare(&query)?;
+                let invit_iter = stmt.query_map([], Invitation::from_row)?;
+                Ok(invit_iter.filter_map(|x| x.ok()).collect::<Vec<_>>())
+            })
+            .await?;
+
+        Ok(invitations)
+    }
+
     pub async fn get_invitation_by_code(&self, code: &str) -> Result<Option<Invitation>> {
         let code = code.to_owned();
         let token = self
             .conn
             .call(|conn| {
-                conn.query_row(
-                    r#"SELECT id, email, code, created_at FROM invitations WHERE code = ?"#,
-                    [code],
-                    Invitation::from_row,
-                )
-                .optional()
+                Ok(conn
+                    .query_row(
+                        r#"SELECT id, email, code, created_at FROM invitations WHERE code = ?"#,
+                        [code],
+                        Invitation::from_row,
+                    )
+                    .optional())
             })
             .await?;
 
-        Ok(token)
+        Ok(token?)
     }
 
     pub async fn create_invitation(&self, email: String) -> Result<i32> {
+        if self.get_user_by_email(&email).await?.is_some() {
+            return Err(anyhow!("User already registered"));
+        }
+
         let code = Uuid::new_v4().to_string();
         let res = self
             .conn
@@ -59,20 +90,27 @@ impl DbConn {
                 let rowid = stmt.insert((email, code))?;
                 Ok(rowid)
             })
-            .await?;
-        if res != 1 {
-            return Err(anyhow!("failed to create invitation"));
-        }
+            .await;
 
-        Ok(res as i32)
+        match res {
+            Err(tokio_rusqlite::Error::Rusqlite(rusqlite::Error::SqliteFailure(err, msg))) => {
+                if err.code == rusqlite::ErrorCode::ConstraintViolation {
+                    Err(anyhow!("Failed to create invitation, email already exists"))
+                } else {
+                    Err(rusqlite::Error::SqliteFailure(err, msg).into())
+                }
+            }
+            Err(err) => Err(err.into()),
+            Ok(rowid) => Ok(rowid as i32),
+        }
     }
 
     pub async fn delete_invitation(&self, id: i32) -> Result<i32> {
         let res = self
             .conn
-            .call(move |c| c.execute(r#"DELETE FROM invitations WHERE id = ?"#, params![id]))
+            .call(move |c| Ok(c.execute(r#"DELETE FROM invitations WHERE id = ?"#, params![id])))
             .await?;
-        if res != 1 {
+        if res != Ok(1) {
             return Err(anyhow!("failed to delete invitation"));
         }
 
