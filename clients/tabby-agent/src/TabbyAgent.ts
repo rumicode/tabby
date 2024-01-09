@@ -26,7 +26,7 @@ import { AgentConfig, PartialAgentConfig, defaultAgentConfig } from "./AgentConf
 import { configFile } from "./configFile";
 import { CompletionCache } from "./CompletionCache";
 import { CompletionDebounce } from "./CompletionDebounce";
-import { CompletionContext } from "./CompletionContext";
+import { CompletionContext, Snippet } from "./CompletionContext";
 import { preCacheProcess, postCacheProcess, calculateReplaceRange } from "./postprocess";
 import { rootLogger, allLoggers } from "./logger";
 import { AnonymousUsageLogger } from "./AnonymousUsageLogger";
@@ -267,6 +267,7 @@ export class TabbyAgent extends EventEmitter implements Agent {
     suffix: string;
     clipboard?: string;
     path: string | null;
+    snippets: Snippet[];
   } {
     // max lines in prefix and suffix configurable
     const maxPrefixLines = this.config.completion.prompt.maxPrefixLines;
@@ -285,7 +286,7 @@ export class TabbyAgent extends EventEmitter implements Agent {
     if (context.clipboard.length >= clipboardConfig.minChars && context.clipboard.length <= clipboardConfig.maxChars) {
       clipboard = context.clipboard;
     }
-    return { prefix, suffix, clipboard, path: context.path };
+    return { prefix, suffix, clipboard, path: context.path, snippets: context.snippets };
   }
 
   public async initialize(options: AgentInitOptions): Promise<boolean> {

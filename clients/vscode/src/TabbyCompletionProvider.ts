@@ -17,16 +17,21 @@ import { EventEmitter } from "events";
 import { CompletionRequest, CompletionResponse, LogEventRequest } from "tabby-agent";
 import { agent } from "./agent";
 import { normalize } from "path";
+import { ContextMixer } from "./completions/context/context-mixer";
+import { DefaultContextStrategyFactory } from "./completions/context/context-strategy";
+import { getCurrentDocContext } from "./completions/get-current-doc-context";
 
 export class TabbyCompletionProvider extends EventEmitter implements InlineCompletionItemProvider {
   private triggerMode: "automatic" | "manual" | "disabled" = "automatic";
   private onGoingRequestAbortController: AbortController | null = null;
   private loading: boolean = false;
   private latestCompletions: CompletionResponse | null = null;
+  private contextMixer: ContextMixer;
 
   public constructor() {
     super();
     this.updateConfiguration();
+    this.contextMixer = new ContextMixer(new DefaultContextStrategyFactory("lsp-light"));
     workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("rumicode") || event.affectsConfiguration("editor.inlineSuggest")) {
         this.updateConfiguration();
@@ -68,6 +73,26 @@ export class TabbyCompletionProvider extends EventEmitter implements InlineCompl
 
     const additionalContext = this.buildAdditionalContext(document);
 
+    const abortController = new AbortController();
+
+    const { context: snippets } = await this.contextMixer.getContext({
+      document,
+      position,
+      docContext: getCurrentDocContext({
+        document,
+        position,
+        maxPrefixLength: 20,
+        maxSuffixLength: 20,
+        // We ignore the current context selection if completeSuggestWidgetSelection is not enabled
+        context: undefined,
+        dynamicMultilineCompletions: true,
+      }),
+      abortSignal: abortController.signal,
+      maxChars: 1024,
+    });
+
+    console.log("snippets", snippets);
+
     const request: CompletionRequest = {
       path: normalize(workspace.asRelativePath(document.uri.fsPath)),
       filepath: document.uri.fsPath,
@@ -77,11 +102,14 @@ export class TabbyCompletionProvider extends EventEmitter implements InlineCompl
       indentation: this.getEditorIndentation(),
       clipboard: await env.clipboard.readText(),
       manually: context.triggerKind === InlineCompletionTriggerKind.Invoke,
+      snippets: snippets.map((snippet) => ({
+        content: snippet.content,
+        file_name: snippet.fileName,
+      })),
     };
 
     this.latestCompletions = null;
 
-    const abortController = new AbortController();
     this.onGoingRequestAbortController = abortController;
     token?.onCancellationRequested(() => {
       console.debug("Completion request is canceled.");

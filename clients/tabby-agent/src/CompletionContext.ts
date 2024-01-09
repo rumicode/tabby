@@ -10,7 +10,13 @@ export type CompletionRequest = {
   indentation?: string;
   clipboard?: string;
   manually?: boolean;
+  snippets?: Snippet[];
 };
+
+export interface Snippet {
+  file_name: string;
+  content: string;
+}
 
 export type CompletionResponseChoice = {
   index: number;
@@ -42,6 +48,7 @@ export class CompletionContext {
   indentation?: string;
   text: string;
   position: number;
+  snippets: Snippet[];
 
   prefix: string;
   suffix: string;
@@ -65,6 +72,7 @@ export class CompletionContext {
     this.text = request.text;
     this.position = request.position;
     this.indentation = request.indentation;
+    this.snippets = request.snippets ?? [];
 
     this.prefix = request.text.slice(0, request.position);
     this.suffix = request.text.slice(request.position);

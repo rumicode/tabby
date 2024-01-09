@@ -5,6 +5,7 @@ import { createAgentInstance, disposeAgentInstance } from "./agent";
 import { tabbyCommands } from "./commands";
 import { TabbyCompletionProvider } from "./TabbyCompletionProvider";
 import { TabbyStatusBarItem } from "./TabbyStatusBarItem";
+import { watchVisibleDocuments } from "./watch";
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -13,10 +14,12 @@ export async function activate(context: ExtensionContext) {
   await createAgentInstance(context);
   const completionProvider = new TabbyCompletionProvider();
   const statusBarItem = new TabbyStatusBarItem(context, completionProvider);
+
   context.subscriptions.push(
     languages.registerInlineCompletionItemProvider({ pattern: "**" }, completionProvider),
     statusBarItem.register(),
     ...tabbyCommands(context, completionProvider, statusBarItem),
+    ...watchVisibleDocuments(),
   );
 }
 
