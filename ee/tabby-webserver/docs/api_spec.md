@@ -41,11 +41,11 @@ For `/repositories/https_github.com_TabbyML_tabby.git/resolve/ee/tabby-webserver
 ```json
 {
   "entries": [
-    "ee/tabby-webserver/src",
-    "ee/tabby-webserver/ui",
-    "ee/tabby-webserver/examples",
-    "ee/tabby-webserver/Cargo.toml",
-    "ee/tabby-webserver/graphql"
+    { "kind": "dir",  "basename": "ee/tabby-webserver/src" },
+    { "kind": "dir",  "basename": "ee/tabby-webserver/ui" },
+    { "kind": "dir",  "basename": "ee/tabby-webserver/examples" },
+    { "kind": "file", "basename": "ee/tabby-webserver/Cargo.toml" },
+    { "kind": "dir",  "basename": "ee/tabby-webserver/graphql" }
   ]
 }
 ```
@@ -140,4 +140,27 @@ The `Content-Type` for successful response is always `application/json`.
     ......omit......
   ]
 }
+```
+
+## OAuth api: `/oauth_callback`
+
+### GitHub
+
+**URL:** `/oauth_callback/github`
+
+**Method:** `GET`
+
+**Request example:**
+
+```shell
+curl --request GET \
+  --url http://localhost:8080/oauth_callback/github?code=1234567890
+```
+
+**Response example:**
+
+The request will redirect to `/auth/signin` with refresh token & access token attached.
+
+```
+http://localhost:8080/auth/signin?refresh_token=321bc1bbb043456dae1a7abc0c447875&access_token=eyJ0eXAi......1NiJ9.eyJleHAi......bWluIjp0cnVlfQ.GvHSMUfc...S5BnwY
 ```

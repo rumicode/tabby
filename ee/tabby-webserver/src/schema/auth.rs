@@ -1,10 +1,10 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use jsonwebtoken as jwt;
-use juniper::{FieldError, GraphQLObject, IntoFieldError, ScalarValue};
+use juniper::{FieldError, GraphQLObject, IntoFieldError, ScalarValue, ID};
 use juniper_axum::relay;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,7 @@ use uuid::Uuid;
 use validator::ValidationErrors;
 
 use super::from_validation_errors;
-use crate::schema::Context;
+use crate::{oauth::github::GithubClient, schema::Context};
 
 lazy_static! {
     static ref JWT_TOKEN_SECRET: String  = jwt_token_secret();
@@ -145,6 +145,30 @@ pub enum TokenAuthError {
     Unknown,
 }
 
+#[derive(Default, Serialize)]
+pub struct GithubAuthResponse {
+    pub access_token: String,
+    pub refresh_token: String,
+}
+
+#[derive(Error, Debug)]
+pub enum GithubAuthError {
+    #[error("The code passed is incorrect or expired")]
+    InvalidVerificationCode,
+
+    #[error("The Github credential is not active")]
+    CredentialNotActive,
+
+    #[error("The user is not invited to access the system")]
+    UserNotInvited,
+
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+
+    #[error("Unknown error")]
+    Unknown,
+}
+
 impl<S: ScalarValue> IntoFieldError<S> for TokenAuthError {
     fn into_field_error(self) -> FieldError<S> {
         match self {
@@ -263,6 +287,7 @@ impl relay::NodeType for User {
     }
 }
 
+#[deprecated]
 #[derive(Debug, Default, Serialize, Deserialize, GraphQLObject)]
 pub struct Invitation {
     pub id: i32,
@@ -270,6 +295,17 @@ pub struct Invitation {
     pub code: String,
 
     pub created_at: String,
+}
+
+impl From<InvitationNext> for Invitation {
+    fn from(value: InvitationNext) -> Self {
+        Self {
+            id: value.id.parse::<i32>().unwrap(),
+            email: value.email,
+            code: value.code,
+            created_at: value.created_at,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, GraphQLObject)]
@@ -298,45 +334,6 @@ impl relay::NodeType for InvitationNext {
     }
 }
 
-impl From<Invitation> for InvitationNext {
-    fn from(val: Invitation) -> Self {
-        Self {
-            id: juniper::ID::new(val.id.to_string()),
-            email: val.email,
-            code: val.code,
-            created_at: val.created_at,
-        }
-    }
-}
-
-#[derive(Debug, GraphQLObject)]
-#[graphql(context = Context)]
-pub struct JobRun {
-    pub id: juniper::ID,
-    pub job_name: String,
-    pub start_time: DateTime<Utc>,
-    pub finish_time: Option<DateTime<Utc>>,
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-}
-
-impl relay::NodeType for JobRun {
-    type Cursor = String;
-
-    fn cursor(&self) -> Self::Cursor {
-        self.id.to_string()
-    }
-
-    fn connection_type_name() -> &'static str {
-        "JobRunConnection"
-    }
-
-    fn edge_type_name() -> &'static str {
-        "JobRunEdge"
-    }
-}
-
 #[async_trait]
 pub trait AuthenticationService: Send + Sync {
     async fn register(
@@ -361,15 +358,12 @@ pub trait AuthenticationService: Send + Sync {
     async fn is_admin_initialized(&self) -> Result<bool>;
     async fn get_user_by_email(&self, email: &str) -> Result<User>;
 
-    async fn create_invitation(&self, email: String) -> Result<i32>;
-    async fn list_invitations(&self) -> Result<Vec<Invitation>>;
-    async fn delete_invitation(&self, id: i32) -> Result<i32>;
+    async fn create_invitation(&self, email: String) -> Result<ID>;
+    async fn delete_invitation(&self, id: ID) -> Result<ID>;
 
     async fn reset_user_auth_token(&self, email: &str) -> Result<()>;
 
-    async fn list_users(&self) -> Result<Vec<User>>;
-
-    async fn list_users_in_page(
+    async fn list_users(
         &self,
         after: Option<String>,
         before: Option<String>,
@@ -377,7 +371,7 @@ pub trait AuthenticationService: Send + Sync {
         last: Option<usize>,
     ) -> Result<Vec<User>>;
 
-    async fn list_invitations_in_page(
+    async fn list_invitations(
         &self,
         after: Option<String>,
         before: Option<String>,
@@ -385,13 +379,11 @@ pub trait AuthenticationService: Send + Sync {
         last: Option<usize>,
     ) -> Result<Vec<InvitationNext>>;
 
-    async fn list_job_runs(
+    async fn github_auth(
         &self,
-        after: Option<String>,
-        before: Option<String>,
-        first: Option<usize>,
-        last: Option<usize>,
-    ) -> Result<Vec<JobRun>>;
+        code: String,
+        client: Arc<GithubClient>,
+    ) -> std::result::Result<GithubAuthResponse, GithubAuthError>;
 }
 
 #[cfg(test)]

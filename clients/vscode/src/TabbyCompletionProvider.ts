@@ -9,7 +9,6 @@ import {
   TextDocument,
   NotebookDocument,
   NotebookRange,
-  env,
   window,
   workspace,
 } from "vscode";
@@ -100,7 +99,6 @@ export class TabbyCompletionProvider extends EventEmitter implements InlineCompl
       text: additionalContext.prefix + document.getText() + additionalContext.suffix,
       position: additionalContext.prefix.length + document.offsetAt(position),
       indentation: this.getEditorIndentation(),
-      clipboard: await env.clipboard.readText(),
       manually: context.triggerKind === InlineCompletionTriggerKind.Invoke,
       snippets: snippets.map((snippet) => ({
         content: snippet.content,
