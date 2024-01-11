@@ -1,41 +1,53 @@
+import { EventEmitter } from "events";
+import { normalize } from "path";
+import { CompletionRequest, CompletionResponse, LogEventRequest } from "tabby-agent";
 import {
   CancellationToken,
   InlineCompletionContext,
   InlineCompletionItem,
   InlineCompletionItemProvider,
   InlineCompletionTriggerKind,
+  NotebookDocument,
+  NotebookRange,
   Position,
   Range,
   TextDocument,
-  NotebookDocument,
-  NotebookRange,
   window,
   workspace,
+  ExtensionContext,
 } from "vscode";
-import { EventEmitter } from "events";
-import { CompletionRequest, CompletionResponse, LogEventRequest } from "tabby-agent";
 import { agent } from "./agent";
-import { normalize } from "path";
 import { ContextMixer } from "./completions/context/context-mixer";
-import { DefaultContextStrategyFactory } from "./completions/context/context-strategy";
+import { ContextStrategy, DefaultContextStrategyFactory } from "./completions/context/context-strategy";
 import { getCurrentDocContext } from "./completions/get-current-doc-context";
 
+const getContextRetrieverStrategy = (): ContextStrategy =>
+  workspace.getConfiguration("rumicode").get("inlineCompletion.contextRetriever", "none");
+
+const createContextMixer = (context: ExtensionContext) =>
+  new ContextMixer(new DefaultContextStrategyFactory(getContextRetrieverStrategy(), context));
+
 export class TabbyCompletionProvider extends EventEmitter implements InlineCompletionItemProvider {
+  #context: ExtensionContext;
   private triggerMode: "automatic" | "manual" | "disabled" = "automatic";
   private onGoingRequestAbortController: AbortController | null = null;
   private loading: boolean = false;
   private latestCompletions: CompletionResponse | null = null;
-  private contextMixer: ContextMixer;
+  private contextMixer?: ContextMixer;
 
-  public constructor() {
+  public constructor(context: ExtensionContext) {
     super();
+    this.#context = context;
     this.updateConfiguration();
-    this.contextMixer = new ContextMixer(new DefaultContextStrategyFactory("lsp-light"));
     workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("rumicode") || event.affectsConfiguration("editor.inlineSuggest")) {
         this.updateConfiguration();
       }
     });
+  }
+
+  public dispose(): void {
+    this.contextMixer?.dispose();
   }
 
   public getTriggerMode(): "automatic" | "manual" | "disabled" {
@@ -74,23 +86,25 @@ export class TabbyCompletionProvider extends EventEmitter implements InlineCompl
 
     const abortController = new AbortController();
 
-    const { context: snippets } = await this.contextMixer.getContext({
-      document,
-      position,
-      docContext: getCurrentDocContext({
-        document,
-        position,
-        maxPrefixLength: 20,
-        maxSuffixLength: 20,
-        // We ignore the current context selection if completeSuggestWidgetSelection is not enabled
-        context: undefined,
-        dynamicMultilineCompletions: true,
-      }),
-      abortSignal: abortController.signal,
-      maxChars: 1024,
-    });
+    const { context: snippets } = this.contextMixer
+      ? await this.contextMixer.getContext({
+          document,
+          position,
+          docContext: getCurrentDocContext({
+            document,
+            position,
+            maxPrefixLength: 25,
+            maxSuffixLength: 20,
+            // We ignore the current context selection if completeSuggestWidgetSelection is not enabled
+            context: undefined,
+            dynamicMultilineCompletions: true,
+          }),
+          abortSignal: abortController.signal,
+          maxChars: 1024,
+        })
+      : { context: [] };
 
-    console.log("snippets", snippets);
+    console.debug("snippets", snippets);
 
     const request: CompletionRequest = {
       path: normalize(workspace.asRelativePath(document.uri.fsPath)),
@@ -218,6 +232,9 @@ export class TabbyCompletionProvider extends EventEmitter implements InlineCompl
       this.triggerMode = workspace.getConfiguration("rumicode").get("inlineCompletion.triggerMode", "automatic");
       this.emit("triggerModeUpdated");
     }
+
+    this.contextMixer?.dispose();
+    this.contextMixer = createContextMixer(this.#context);
   }
 
   private buildAdditionalContext(document: TextDocument): { prefix: string; suffix: string } {

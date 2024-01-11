@@ -12,7 +12,7 @@ import { watchVisibleDocuments } from "./watch";
 export async function activate(context: ExtensionContext) {
   console.debug("Activating RumiCode extension", new Date());
   await createAgentInstance(context);
-  const completionProvider = new TabbyCompletionProvider();
+  const completionProvider = new TabbyCompletionProvider(context);
   const statusBarItem = new TabbyStatusBarItem(context, completionProvider);
 
   context.subscriptions.push(
@@ -20,6 +20,7 @@ export async function activate(context: ExtensionContext) {
     statusBarItem.register(),
     ...tabbyCommands(context, completionProvider, statusBarItem),
     ...watchVisibleDocuments(),
+    completionProvider,
   );
 }
 

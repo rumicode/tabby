@@ -114,8 +114,22 @@
             "vscode-style",
             "tabby-style"
           ],
-          "default": "tabby-style",
+          "default": "vscode-style",
           "markdownDescription": "Select the keybinding profile to accept shown inline completion. \n | | Next Line | Full Completion | Next Word | \n |:---:|:---:|:---:|:---:| \n | _vscode-style_ | - | Tab | Ctrl + RightArrow | \n | _tabby-style_ <br/> _(experimental)_ | Tab | Ctrl + Tab | Ctrl + RightArrow | \n"
+        },
+        "rumicode.inlineCompletion.contextRetriever": {
+          "type": "string",
+          "enum": [
+            "none",
+            "bfg",
+            "bfg-mixed",
+            "jaccard-similarity",
+            "section-history",
+            "local-mixed",
+            "lsp-light"
+          ],
+          "default": "bfg",
+          "markdownDescription": "Select the context retriever to use for inline completion"
         }
       }
     },
@@ -186,7 +200,9 @@
     "typescript": "^5.3.2"
   },
   "dependencies": {
+    "@types/unzipper": "^0.10.9",
     "@xstate/fsm": "^2.0.1",
+    "axios": "^1.6.5",
     "date-fns": "^3.0.6",
     "detect-indent": "^7.0.1",
     "fuzzysort": "^2.0.4",
@@ -194,6 +210,7 @@
     "lodash": "^4.17.21",
     "lru-cache": "^10.1.0",
     "tabby-agent": "1.2.0-dev",
+    "unzipper": "^0.10.14",
     "wink-nlp-utils": "^2.1.0"
   }
 }

@@ -9,10 +9,9 @@ export function baseLanguageId(languageId: string): string {
   switch (languageId) {
     case "typescript":
     case "typescriptreact":
-      return "typescript";
     case "javascript":
     case "javascriptreact":
-      return "javascript";
+      return "typescriptreact";
     default:
       return languageId;
   }

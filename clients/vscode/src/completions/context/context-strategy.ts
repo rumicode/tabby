@@ -5,13 +5,17 @@ import { ContextRetriever } from "../types";
 import { JaccardSimilarityRetriever } from "./retrievers/jaccard-similarity/jaccard-similarity-retriever";
 import { LspLightRetriever } from "./retrievers/lsp-light/lsp-light-retriever";
 import { SectionHistoryRetriever } from "./retrievers/section-history/section-history-retriever";
+import { BfgRetriever } from "./retrievers/bfg/bfg-retriever";
 
 export type ContextStrategy =
+  | "bfg"
+  | "bfg-mixed"
   | "lsp-light"
   | "bfg"
   | "jaccard-similarity"
   | "bfg-mixed"
   | "local-mixed"
+  | "section-history"
   | "none";
 
 export interface ContextStrategyFactory extends vscode.Disposable {
@@ -27,13 +31,23 @@ export class DefaultContextStrategyFactory implements ContextStrategyFactory {
   private localRetriever: ContextRetriever | undefined;
   private graphRetriever: ContextRetriever | undefined;
 
-  constructor(private contextStrategy: ContextStrategy) {
+  constructor(
+    private contextStrategy: ContextStrategy,
+    context: vscode.ExtensionContext,
+  ) {
     switch (contextStrategy) {
       case "none":
         break;
       case "bfg-mixed":
       case "bfg":
-        throw new Error("Not implemented");
+        // The bfg strategy uses jaccard similarity as a fallback if no results are found or
+        // the language is not supported by BFG
+        this.localRetriever = new JaccardSimilarityRetriever();
+        this.disposables.push(this.localRetriever);
+        this.graphRetriever = new BfgRetriever(context);
+        this.disposables.push(this.graphRetriever);
+
+        break;
       case "lsp-light":
         this.localRetriever = new JaccardSimilarityRetriever();
         this.graphRetriever = new LspLightRetriever();
@@ -41,6 +55,10 @@ export class DefaultContextStrategyFactory implements ContextStrategyFactory {
         break;
       case "jaccard-similarity":
         this.localRetriever = new JaccardSimilarityRetriever();
+        this.disposables.push(this.localRetriever);
+        break;
+      case "section-history":
+        this.localRetriever = SectionHistoryRetriever.createInstance();
         this.disposables.push(this.localRetriever);
         break;
       case "local-mixed":
@@ -65,10 +83,7 @@ export class DefaultContextStrategyFactory implements ContextStrategyFactory {
 
       // The lsp-light strategy mixes local and graph based retrievers
       case "lsp-light": {
-        if (
-          this.graphRetriever &&
-          this.graphRetriever.isSupportedForLanguageId(document.languageId)
-        ) {
+        if (this.graphRetriever && this.graphRetriever.isSupportedForLanguageId(document.languageId)) {
           retrievers.push(this.graphRetriever);
         }
         if (this.localRetriever) {
@@ -79,10 +94,7 @@ export class DefaultContextStrategyFactory implements ContextStrategyFactory {
 
       // The bfg strategy exclusively uses bfg strategy when the language is supported
       case "bfg":
-        if (
-          this.graphRetriever &&
-          this.graphRetriever.isSupportedForLanguageId(document.languageId)
-        ) {
+        if (this.graphRetriever && this.graphRetriever.isSupportedForLanguageId(document.languageId)) {
           retrievers.push(this.graphRetriever);
         } else if (this.localRetriever) {
           retrievers.push(this.localRetriever);
@@ -91,10 +103,7 @@ export class DefaultContextStrategyFactory implements ContextStrategyFactory {
 
       // The bfg mixed strategy mixes local and graph based retrievers
       case "bfg-mixed":
-        if (
-          this.graphRetriever &&
-          this.graphRetriever.isSupportedForLanguageId(document.languageId)
-        ) {
+        if (this.graphRetriever && this.graphRetriever.isSupportedForLanguageId(document.languageId)) {
           retrievers.push(this.graphRetriever);
         }
         if (this.localRetriever) {
@@ -114,6 +123,13 @@ export class DefaultContextStrategyFactory implements ContextStrategyFactory {
 
       // The jaccard similarity strategy only uses the local retriever
       case "jaccard-similarity": {
+        if (this.localRetriever) {
+          retrievers.push(this.localRetriever);
+        }
+        break;
+      }
+
+      case "section-history": {
         if (this.localRetriever) {
           retrievers.push(this.localRetriever);
         }

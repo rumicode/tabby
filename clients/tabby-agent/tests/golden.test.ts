@@ -76,7 +76,7 @@ describe("agent golden test", () => {
       requestTimeout: 30000,
     },
     completion: {
-      prompt: { experimentalStripAutoClosingCharacters: false, maxPrefixLines: 20, maxSuffixLines: 20 },
+      prompt: { experimentalStripAutoClosingCharacters: false, maxPrefixLines: 25, maxSuffixLines: 20 },
       debounce: { mode: "adaptive", interval: 250 },
       timeout: 4000,
     },

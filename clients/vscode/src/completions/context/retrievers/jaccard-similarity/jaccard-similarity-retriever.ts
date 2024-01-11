@@ -1,16 +1,14 @@
-import path from 'path';
+import path from "path";
 
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
+import { type URI } from "vscode-uri";
 
-import {
-  ContextRetriever,
-  ContextRetrieverOptions,
-  ContextSnippet,
-} from '../../../types';
-import { baseLanguageId } from '../../utils';
+import { getContextRange } from "../../../doc-context-getters";
+import { type ContextRetriever, type ContextRetrieverOptions } from "../../../types";
+import { baseLanguageId } from "../../utils";
+import { VSCodeDocumentHistory, type DocumentHistory } from "./history";
 
-import { bestJaccardMatch, JaccardMatch } from './bestJaccardMatch';
-import { DocumentHistory, VSCodeDocumentHistory } from './history';
+import { bestJaccardMatches, type JaccardMatch } from "./bestJaccardMatch";
 
 /**
  * The size of the Jaccard distance match window in number of lines. It determines how many
@@ -18,7 +16,14 @@ import { DocumentHistory, VSCodeDocumentHistory } from './history';
  * that is most similar to the 'targetText'. In essence, it sets the maximum number
  * of lines that the best match can be. A larger 'windowSize' means larger potential matches
  */
-export const SNIPPET_WINDOW_SIZE = 50;
+const SNIPPET_WINDOW_SIZE = 50;
+
+/**
+ * Limits the number of jaccard windows that are fetched for a single file. This is mostly added to
+ * avoid large files taking up too much compute time and to avoid a single file to take up too much
+ * of the whole context window.
+ */
+const MAX_MATCHES_PER_FILE = 20;
 
 /**
  * The Jaccard Similarity Retriever is a sparse, local-only, retrieval strategy that uses local
@@ -26,30 +31,66 @@ export const SNIPPET_WINDOW_SIZE = 50;
  * editor prefix.
  */
 export class JaccardSimilarityRetriever implements ContextRetriever {
-  public identifier = 'jaccard-similarity';
+  constructor(
+    private snippetWindowSize: number = SNIPPET_WINDOW_SIZE,
+    private maxMatchesPerFile: number = MAX_MATCHES_PER_FILE,
+  ) {}
+
+  public identifier = "jaccard-similarity";
   private history = new VSCodeDocumentHistory();
 
   public async retrieve({
     document,
     docContext,
     abortSignal,
-  }: ContextRetrieverOptions): Promise<ContextSnippet[]> {
-    const targetText = lastNLines(docContext.prefix, SNIPPET_WINDOW_SIZE);
+  }: ContextRetrieverOptions): Promise<JaccardMatchWithFilename[]> {
+    const targetText = lastNLines(docContext.prefix, this.snippetWindowSize);
     const files = await getRelevantFiles(document, this.history);
+
+    const contextRange = getContextRange(document, docContext);
+    const contextLineRange = { start: contextRange.start.line, end: contextRange.end.line };
 
     const matches: JaccardMatchWithFilename[] = [];
     for (const { uri, contents } of files) {
-      const match = bestJaccardMatch(targetText, contents, SNIPPET_WINDOW_SIZE);
-      if (!match || abortSignal?.aborted) {
+      if (abortSignal?.aborted) {
         continue;
       }
+      const lines = contents.split("\n");
+      const fileMatches = bestJaccardMatches(targetText, contents, this.snippetWindowSize, this.maxMatchesPerFile);
 
-      matches.push({
-        // Use relative path to remove redundant information from the prompts and
-        // keep in sync with embeddings search results which use relative to repo root paths
-        fileName: path.normalize(vscode.workspace.asRelativePath(uri.fsPath)),
-        ...match,
-      });
+      // Use relative path to remove redundant information from the prompts and
+      // keep in sync with embeddings search results which use relative to repo root paths
+      const readableFileName = path.normalize(vscode.workspace.asRelativePath(uri.fsPath));
+
+      // Ignore matches with 0 overlap to our source file
+      const relatedMatches = fileMatches.filter((match) => match.score > 0);
+
+      // TODO: Cluster matches by score. For now we assume that every match that is returned
+      // is of equal importance to the user (we truncate the list by maxMatchesPerFile to
+      // avoid this being too many results), but ideally we can create clusters so that merged
+      // sections do not become too big
+
+      const mergedMatches = mergeOverlappingMatches(document.uri, lines, relatedMatches);
+
+      for (const match of mergedMatches) {
+        if (
+          uri.toString() === document.uri.toString() &&
+          startOrEndOverlapsLineRange(
+            uri,
+            { start: match.startLine, end: match.endLine },
+            document.uri,
+            contextLineRange,
+          )
+        ) {
+          continue;
+        }
+
+        matches.push({
+          fileName: readableFileName,
+          ...match,
+          uri,
+        });
+      }
     }
 
     matches.sort((a, b) => b.score - a.score);
@@ -68,6 +109,7 @@ export class JaccardSimilarityRetriever implements ContextRetriever {
 
 interface JaccardMatchWithFilename extends JaccardMatch {
   fileName: string;
+  uri: URI;
 }
 
 interface FileContents {
@@ -96,13 +138,8 @@ async function getRelevantFiles(
   }
 
   function addDocument(document: vscode.TextDocument): void {
-    if (document.uri.toString() === currentDocument.uri.toString()) {
-      // omit current file
-      return;
-    }
-
     // Only add files and VSCode user settings.
-    if (!['file', 'vscode-userdata'].includes(document.uri.scheme)) {
+    if (!["file", "vscode-userdata"].includes(document.uri.scheme)) {
       return;
     }
 
@@ -121,7 +158,7 @@ async function getRelevantFiles(
   }
 
   const visibleUris = vscode.window.visibleTextEditors.flatMap((e) =>
-    e.document.uri.scheme === 'file' ? [e.document.uri] : [],
+    e.document.uri.scheme === "file" ? [e.document.uri] : [],
   );
 
   // Use tabs API to get current docs instead of `vscode.workspace.textDocuments`.
@@ -141,9 +178,7 @@ async function getRelevantFiles(
   const surroundingTabs = visibleUris.length <= 1 ? 3 : 2;
   for (const visibleUri of visibleUris) {
     uris.set(visibleUri.toString(), visibleUri);
-    const index = allUris.findIndex(
-      (uri) => uri.toString() === visibleUri.toString(),
-    );
+    const index = allUris.findIndex((uri) => uri.toString() === visibleUri.toString());
 
     if (index === -1) {
       continue;
@@ -175,7 +210,7 @@ async function getRelevantFiles(
   ).flat();
 
   for (const document of docs) {
-    if (document.fileName.endsWith('.git')) {
+    if (document.fileName.endsWith(".git")) {
       // The VS Code API returns fils with the .git suffix for every open file
       continue;
     }
@@ -183,23 +218,74 @@ async function getRelevantFiles(
   }
 
   await Promise.all(
-    history
-      .lastN(10, curLang, [currentDocument.uri, ...files.map((f) => f.uri)])
-      .map(async (item) => {
-        try {
-          const document = await vscode.workspace.openTextDocument(
-            item.document.uri,
-          );
-          addDocument(document);
-        } catch (error) {
-          console.error(error);
-        }
-      }),
+    history.lastN(10, curLang, [currentDocument.uri, ...files.map((f) => f.uri)]).map(async (item) => {
+      try {
+        const document = await vscode.workspace.openTextDocument(item.document.uri);
+        addDocument(document);
+      } catch (error) {
+        console.error(error);
+      }
+    }),
   );
   return files;
 }
 
 function lastNLines(text: string, n: number): string {
-  const lines = text.split('\n');
-  return lines.slice(Math.max(0, lines.length - n)).join('\n');
+  const lines = text.split("\n");
+  return lines.slice(Math.max(0, lines.length - n)).join("\n");
+}
+
+/**
+ * @returns true if range A overlaps range B
+ */
+function startOrEndOverlapsLineRange(
+  uriA: vscode.Uri,
+  lineRangeA: { start: number; end: number },
+  uriB: vscode.Uri,
+  lineRangeB: { start: number; end: number },
+): boolean {
+  if (uriA.toString() !== uriB.toString()) {
+    return false;
+  }
+  return (
+    (lineRangeA.start >= lineRangeB.start && lineRangeA.start <= lineRangeB.end) ||
+    (lineRangeA.end >= lineRangeB.start && lineRangeA.end <= lineRangeB.end)
+  );
+}
+
+function mergeOverlappingMatches(uri: vscode.Uri, lines: string[], matches: JaccardMatch[]): JaccardMatch[] {
+  if (matches.length <= 1) {
+    return matches;
+  }
+
+  // We first sort the ranges based on the startLine to avoid creating a second match for
+  // something that would be merged into another one later
+  const sortedMatches = matches.slice(0).sort((a, b) => a.startLine - b.startLine);
+
+  const mergedMatches = [sortedMatches[0]];
+  for (let i = 1; i < sortedMatches.length; i++) {
+    const match = sortedMatches[i];
+    let merged = false;
+    for (const mergedMatch of mergedMatches) {
+      if (
+        startOrEndOverlapsLineRange(uri, { start: match.startLine, end: match.endLine }, uri, {
+          start: mergedMatch.startLine,
+          end: mergedMatch.endLine,
+        })
+      ) {
+        // TODO: We may need to boost the score but for now we pick the max of both matches
+        mergedMatch.score = Math.max(mergedMatch.score, match.score);
+        mergedMatch.startLine = Math.min(mergedMatch.startLine, match.startLine);
+        mergedMatch.endLine = Math.max(mergedMatch.endLine, match.endLine);
+        mergedMatch.content = lines.slice(mergedMatch.startLine, mergedMatch.endLine).join("\n");
+        merged = true;
+        break;
+      }
+    }
+
+    if (!merged) {
+      mergedMatches.push(match);
+    }
+  }
+  return mergedMatches;
 }
