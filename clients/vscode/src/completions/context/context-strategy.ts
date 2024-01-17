@@ -5,7 +5,6 @@ import { ContextRetriever } from "../types";
 import { JaccardSimilarityRetriever } from "./retrievers/jaccard-similarity/jaccard-similarity-retriever";
 import { LspLightRetriever } from "./retrievers/lsp-light/lsp-light-retriever";
 import { SectionHistoryRetriever } from "./retrievers/section-history/section-history-retriever";
-import { BfgRetriever } from "./retrievers/bfg/bfg-retriever";
 
 export type ContextStrategy =
   | "bfg"
@@ -33,19 +32,15 @@ export class DefaultContextStrategyFactory implements ContextStrategyFactory {
 
   constructor(
     private contextStrategy: ContextStrategy,
-    context: vscode.ExtensionContext,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _context: vscode.ExtensionContext,
   ) {
     switch (contextStrategy) {
       case "none":
         break;
       case "bfg-mixed":
       case "bfg":
-        // The bfg strategy uses jaccard similarity as a fallback if no results are found or
-        // the language is not supported by BFG
-        this.localRetriever = new JaccardSimilarityRetriever();
-        this.disposables.push(this.localRetriever);
-        this.graphRetriever = new BfgRetriever(context);
-        this.disposables.push(this.graphRetriever);
+        throw new Error("not implemented");
 
         break;
       case "lsp-light":

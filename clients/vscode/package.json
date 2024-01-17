@@ -121,14 +121,12 @@
           "type": "string",
           "enum": [
             "none",
-            "bfg",
-            "bfg-mixed",
             "jaccard-similarity",
             "section-history",
             "local-mixed",
             "lsp-light"
           ],
-          "default": "bfg",
+          "default": "section-history",
           "markdownDescription": "Select the context retriever to use for inline completion"
         }
       }

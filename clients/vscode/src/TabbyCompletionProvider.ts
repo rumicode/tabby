@@ -86,25 +86,25 @@ export class TabbyCompletionProvider extends EventEmitter implements InlineCompl
 
     const abortController = new AbortController();
 
+    const docContext = getCurrentDocContext({
+      document,
+      position,
+      maxPrefixLength: 25,
+      maxSuffixLength: 20,
+      // We ignore the current context selection if completeSuggestWidgetSelection is not enabled
+      context: undefined,
+      dynamicMultilineCompletions: true,
+    });
+
     const { context: snippets } = this.contextMixer
       ? await this.contextMixer.getContext({
           document,
           position,
-          docContext: getCurrentDocContext({
-            document,
-            position,
-            maxPrefixLength: 25,
-            maxSuffixLength: 20,
-            // We ignore the current context selection if completeSuggestWidgetSelection is not enabled
-            context: undefined,
-            dynamicMultilineCompletions: true,
-          }),
+          docContext,
           abortSignal: abortController.signal,
           maxChars: 1024,
         })
       : { context: [] };
-
-    console.debug("snippets", snippets);
 
     const request: CompletionRequest = {
       path: normalize(workspace.asRelativePath(document.uri.fsPath)),
