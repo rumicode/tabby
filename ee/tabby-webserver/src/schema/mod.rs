@@ -1,6 +1,8 @@
 pub mod auth;
 mod dao;
+pub mod email;
 pub mod job;
+pub mod repository;
 pub mod worker;
 
 use std::sync::Arc;
@@ -15,11 +17,23 @@ use juniper::{
     graphql_object, graphql_value, EmptySubscription, FieldError, FieldResult, IntoFieldError,
     Object, RootNode, ScalarValue, Value, ID,
 };
-use juniper_axum::{relay, FromAuth};
+use juniper_axum::{
+    relay::{self, Connection},
+    FromAuth,
+};
 use tabby_common::api::{code::CodeSearch, event::RawEventLogger};
 use tracing::error;
 use validator::ValidationErrors;
 use worker::{Worker, WorkerService};
+
+use self::{
+    email::{EmailService, EmailSetting},
+    repository::RepositoryService,
+};
+use crate::schema::{
+    auth::{OAuthCredential, OAuthProvider},
+    repository::Repository,
+};
 
 pub trait ServiceLocator: Send + Sync {
     fn auth(&self) -> Arc<dyn AuthenticationService>;
@@ -27,6 +41,8 @@ pub trait ServiceLocator: Send + Sync {
     fn code(&self) -> Arc<dyn CodeSearch>;
     fn logger(&self) -> Arc<dyn RawEventLogger>;
     fn job(&self) -> Arc<dyn JobService>;
+    fn repository(&self) -> Arc<dyn RepositoryService>;
+    fn email_setting(&self) -> Arc<dyn EmailService>;
 }
 
 pub struct Context {
@@ -145,7 +161,7 @@ impl Query {
         before: Option<String>,
         first: Option<i32>,
         last: Option<i32>,
-    ) -> FieldResult<relay::Connection<User>> {
+    ) -> FieldResult<Connection<User>> {
         if let Some(claims) = &ctx.claims {
             if claims.is_admin {
                 return relay::query_async(
@@ -179,7 +195,7 @@ impl Query {
         before: Option<String>,
         first: Option<i32>,
         last: Option<i32>,
-    ) -> FieldResult<relay::Connection<InvitationNext>> {
+    ) -> FieldResult<Connection<InvitationNext>> {
         if let Some(claims) = &ctx.claims {
             if claims.is_admin {
                 return relay::query_async(
@@ -213,7 +229,7 @@ impl Query {
         before: Option<String>,
         first: Option<i32>,
         last: Option<i32>,
-    ) -> FieldResult<relay::Connection<JobRun>> {
+    ) -> FieldResult<Connection<JobRun>> {
         if let Some(claims) = &ctx.claims {
             if claims.is_admin {
                 return relay::query_async(
@@ -222,15 +238,11 @@ impl Query {
                     first,
                     last,
                     |after, before, first, last| async move {
-                        match ctx
+                        Ok(ctx
                             .locator
                             .job()
                             .list_job_runs(after, before, first, last)
-                            .await
-                        {
-                            Ok(job_runs) => Ok(job_runs),
-                            Err(err) => Err(FieldError::from(err)),
-                        }
+                            .await?)
                     },
                 )
                 .await;
@@ -239,6 +251,49 @@ impl Query {
         Err(FieldError::from(CoreError::Unauthorized(
             "Only admin is able to query job runs",
         )))
+    }
+
+    async fn email_setting(ctx: &Context) -> Result<Option<EmailSetting>> {
+        let val = ctx.locator.email_setting().get_email_setting().await?;
+        Ok(val)
+    }
+
+    async fn repositories(
+        &self,
+        ctx: &Context,
+        after: Option<String>,
+        before: Option<String>,
+        first: Option<i32>,
+        last: Option<i32>,
+    ) -> FieldResult<Connection<Repository>> {
+        relay::query_async(
+            after,
+            before,
+            first,
+            last,
+            |after, before, first, last| async move {
+                Ok(ctx
+                    .locator
+                    .repository()
+                    .list_repositories(after, before, first, last)
+                    .await?)
+            },
+        )
+        .await
+    }
+
+    async fn oauth_credential(
+        ctx: &Context,
+        provider: OAuthProvider,
+    ) -> Result<Option<OAuthCredential>> {
+        if let Some(claims) = &ctx.claims {
+            if claims.is_admin {
+                return Ok(ctx.locator.auth().read_oauth_credential(provider).await?);
+            }
+        }
+        Err(CoreError::Unauthorized(
+            "Only admin is able to query oauth credential",
+        ))
     }
 }
 
@@ -331,6 +386,31 @@ impl Mutation {
         ))
     }
 
+    async fn create_repository(ctx: &Context, name: String, git_url: String) -> Result<ID> {
+        Ok(ctx
+            .locator
+            .repository()
+            .create_repository(name, git_url)
+            .await?)
+    }
+
+    async fn delete_repository(ctx: &Context, id: ID) -> Result<bool> {
+        Ok(ctx.locator.repository().delete_repository(id).await?)
+    }
+
+    async fn update_repository(
+        ctx: &Context,
+        id: ID,
+        name: String,
+        git_url: String,
+    ) -> Result<bool> {
+        Ok(ctx
+            .locator
+            .repository()
+            .update_repository(id, name, git_url)
+            .await?)
+    }
+
     async fn delete_invitation_next(ctx: &Context, id: ID) -> Result<ID> {
         if let Some(claims) = &ctx.claims {
             if claims.is_admin {
@@ -340,6 +420,45 @@ impl Mutation {
         Err(CoreError::Unauthorized(
             "Only admin is able to delete invitation",
         ))
+    }
+
+    async fn update_oauth_credential(
+        ctx: &Context,
+        provider: OAuthProvider,
+        client_id: String,
+        client_secret: String,
+        redirect_uri: Option<String>,
+    ) -> Result<bool> {
+        if let Some(claims) = &ctx.claims {
+            if claims.is_admin {
+                ctx.locator
+                    .auth()
+                    .update_oauth_credential(provider, client_id, client_secret, redirect_uri)
+                    .await?;
+                return Ok(true);
+            }
+        }
+        Err(CoreError::Unauthorized(
+            "Only admin is able to update oauth credential",
+        ))
+    }
+
+    async fn update_email_setting(
+        ctx: &Context,
+        smtp_username: String,
+        smtp_password: Option<String>,
+        smtp_server: String,
+    ) -> Result<bool> {
+        ctx.locator
+            .email_setting()
+            .update_email_setting(smtp_username, smtp_password, smtp_server)
+            .await?;
+        Ok(true)
+    }
+
+    async fn delete_email_setting(ctx: &Context) -> Result<bool> {
+        ctx.locator.email_setting().delete_email_setting().await?;
+        Ok(true)
     }
 }
 

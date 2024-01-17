@@ -1,10 +1,12 @@
 mod auth;
 mod cron;
+mod email;
 mod job;
 mod proxy;
+mod repository;
 mod worker;
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, num::ParseIntError, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -21,7 +23,9 @@ use tracing::{info, warn};
 use self::cron::run_cron;
 use crate::schema::{
     auth::AuthenticationService,
+    email::EmailService,
     job::JobService,
+    repository::RepositoryService,
     worker::{RegisterWorkerError, Worker, WorkerKind, WorkerService},
     ServiceLocator,
 };
@@ -201,6 +205,14 @@ impl ServiceLocator for Arc<ServerContext> {
     fn job(&self) -> Arc<dyn JobService> {
         Arc::new(self.db_conn.clone())
     }
+
+    fn repository(&self) -> Arc<dyn RepositoryService> {
+        Arc::new(self.db_conn.clone())
+    }
+
+    fn email_setting(&self) -> Arc<dyn EmailService> {
+        Arc::new(self.db_conn.clone())
+    }
 }
 
 pub async fn create_service_locator(
@@ -208,4 +220,23 @@ pub async fn create_service_locator(
     code: Arc<dyn CodeSearch>,
 ) -> Arc<dyn ServiceLocator> {
     Arc::new(Arc::new(ServerContext::new(logger, code).await))
+}
+
+pub fn graphql_pagination_to_filter(
+    after: Option<String>,
+    before: Option<String>,
+    first: Option<usize>,
+    last: Option<usize>,
+) -> Result<(Option<usize>, Option<i32>, bool), ParseIntError> {
+    match (first, last) {
+        (Some(first), None) => {
+            let after = after.map(|x| x.parse::<i32>()).transpose()?;
+            Ok((Some(first), after, false))
+        }
+        (None, Some(last)) => {
+            let before = before.map(|x| x.parse::<i32>()).transpose()?;
+            Ok((Some(last), before, true))
+        }
+        _ => Ok((None, None, false)),
+    }
 }

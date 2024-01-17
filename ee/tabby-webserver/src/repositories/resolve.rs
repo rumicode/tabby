@@ -64,7 +64,7 @@ struct ListDir {
     entries: Vec<DirEntry>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 enum DirEntryKind {
     File,
@@ -131,7 +131,11 @@ fn load_meta() -> HashMap<DatasetKey, Meta> {
 }
 
 /// Resolve a directory
-pub async fn resolve_dir(root: PathBuf, full_path: PathBuf) -> Result<Response> {
+pub async fn resolve_dir(
+    repo: &ResolveParams,
+    root: PathBuf,
+    full_path: PathBuf,
+) -> Result<Response> {
     let mut read_dir = tokio::fs::read_dir(full_path).await?;
     let mut entries: Vec<DirEntry> = vec![];
 
@@ -148,11 +152,23 @@ pub async fn resolve_dir(root: PathBuf, full_path: PathBuf) -> Result<Response> 
         let kind = if meta.is_dir() {
             DirEntryKind::Dir
         } else if meta.is_file() {
+            let key = DatasetKey {
+                repo_name: repo.name_str().to_string(),
+                rel_path: basename.clone(),
+            };
+            if !contains_meta(&key) {
+                continue;
+            }
             DirEntryKind::File
         } else {
             // Skip others.
             continue;
         };
+
+        // filter out .git directory at root
+        if kind == DirEntryKind::Dir && basename == ".git" && repo.path.is_none() {
+            continue;
+        }
 
         entries.push(DirEntry { kind, basename });
     }
@@ -185,6 +201,10 @@ pub fn resolve_meta(key: &DatasetKey) -> Option<Meta> {
         return Some(meta.clone());
     }
     None
+}
+
+pub fn contains_meta(key: &DatasetKey) -> bool {
+    META.contains_key(key)
 }
 
 pub fn resolve_all(rs: Arc<ResolveState>) -> Result<Response> {
