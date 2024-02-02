@@ -188,7 +188,7 @@
         "when": "config.rumicode.keybindings === 'tabby-style' && inlineSuggestionVisible && !editorReadonly && !suggestWidgetVisible && !editorHoverFocused && !editorTabMovesFocus"
       },
       {
-        "command": "tabby.inlineCompletion.dismiss",
+        "command": "rumicode.inlineCompletion.dismiss",
         "key": "escape",
         "when": "inlineSuggestionVisible"
       }

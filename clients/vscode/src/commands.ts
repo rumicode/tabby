@@ -197,7 +197,6 @@ const applyCallback: Command = {
 const triggerInlineCompletion: Command = {
   command: "rumicode.inlineCompletion.trigger",
   callback: () => {
-    
     commands.executeCommand("editor.action.inlineSuggest.trigger");
   },
 };
@@ -232,7 +231,7 @@ const acceptInlineCompletionNextLine = (completionProvider: TabbyCompletionProvi
 
 const dismissInlineCompletion = (completionProvider: TabbyCompletionProvider): Command => {
   return {
-    command: "tabby.inlineCompletion.dismiss",
+    command: "rumicode.inlineCompletion.dismiss",
     callback: () => {
       completionProvider.handleEvent("dismiss");
       commands.executeCommand("editor.action.inlineSuggest.hide");
