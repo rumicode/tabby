@@ -1,1 +1,0 @@
-Only VSCode extension part of TabbyML/tabby + client side context retriever
