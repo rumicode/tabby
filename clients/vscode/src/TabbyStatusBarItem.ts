@@ -7,7 +7,7 @@ import { TabbyCompletionProvider } from "./TabbyCompletionProvider";
 
 const label = "RumiCode";
 const iconLoading = "$(loading~spin)";
-const iconAutomatic = "$(check)";
+const iconAutomatic = "$(sparkle-filled)";
 const iconManual = "$(chevron-right)";
 const iconDisabled = "$(x)";
 const iconDisconnected = "$(plug)";
@@ -67,6 +67,7 @@ export class TabbyStatusBarItem {
           ready: this.subStatusForReady,
           disconnected: "disconnected",
           unauthorized: "unauthorized",
+          unpaid: "unpaid",
         },
         entry: () => this.toInitializing(),
       },
@@ -75,6 +76,7 @@ export class TabbyStatusBarItem {
           ready: this.subStatusForReady,
           disconnected: "disconnected",
           unauthorized: "unauthorized",
+          unpaid: "unpaid",
         },
         entry: () => this.toAutomatic(),
       },
@@ -83,6 +85,7 @@ export class TabbyStatusBarItem {
           ready: this.subStatusForReady,
           disconnected: "disconnected",
           unauthorized: "unauthorized",
+          unpaid: "unpaid",
         },
         entry: () => this.toManual(),
       },
@@ -91,6 +94,7 @@ export class TabbyStatusBarItem {
           ready: this.subStatusForReady,
           disconnected: "disconnected",
           unauthorized: "unauthorized",
+          unpaid: "unpaid",
         },
         entry: () => this.toLoading(),
       },
@@ -99,6 +103,7 @@ export class TabbyStatusBarItem {
           ready: this.subStatusForReady,
           disconnected: "disconnected",
           unauthorized: "unauthorized",
+          unpaid: "unpaid",
         },
         entry: () => this.toDisabled(),
       },
@@ -106,6 +111,7 @@ export class TabbyStatusBarItem {
         on: {
           ready: this.subStatusForReady,
           unauthorized: "unauthorized",
+          unpaid: "unpaid",
         },
         entry: () => this.toDisconnected(),
       },
@@ -113,6 +119,7 @@ export class TabbyStatusBarItem {
         on: {
           ready: this.subStatusForReady,
           disconnected: "disconnected",
+          unpaid: "unpaid",
         },
         entry: () => this.toUnauthorized(),
       },
@@ -121,8 +128,17 @@ export class TabbyStatusBarItem {
           ready: this.subStatusForReady,
           disconnected: "disconnected",
           unauthorized: "unauthorized",
+          unpaid: "unpaid",
         },
         entry: () => this.toIssuesExist(),
+      },
+      unpaid: {
+        on: {
+          ready: this.subStatusForReady,
+          disconnected: "disconnected",
+          unauthorized: "unauthorized",
+        },
+        entry: () => this.toUnpaid(),
       },
     },
   });
@@ -258,6 +274,18 @@ export class TabbyStatusBarItem {
       title: "",
       command: "rumicode.applyCallback",
       arguments: [() => notifications.showInformationWhenUnauthorized()],
+    };
+  }
+
+  private toUnpaid() {
+    this.item.color = colorWarning;
+    this.item.backgroundColor = backgroundColorWarning;
+    this.item.text = `${iconDisconnected} ${label}`;
+    this.item.tooltip = "Your RumiCode subscription has expired. Please proceed to purchase a subscription. ✨";
+    this.item.command = {
+      title: "",
+      command: "rumicode.applyCallback",
+      arguments: [() => notifications.showInformationWhenUnpaid()],
     };
   }
 

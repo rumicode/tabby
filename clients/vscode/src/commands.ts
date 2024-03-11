@@ -100,6 +100,13 @@ const setApiToken = (context: ExtensionContext): Command => {
   };
 };
 
+const openDashboard: Command = {
+  command: "rumicode.openDashboard",
+  callback: () => {
+    commands.executeCommand("vscode.open", Uri.parse("https://rumicode.ir/dashboard"));
+  },
+};
+
 const openSettings: Command = {
   command: "rumicode.openSettings",
   callback: () => {
@@ -286,6 +293,7 @@ export const tabbyCommands = (
     openSettings,
     openTabbyAgentSettings,
     openKeybindings,
+    openDashboard,
     gettingStarted,
     openAuthPage,
     applyCallback,

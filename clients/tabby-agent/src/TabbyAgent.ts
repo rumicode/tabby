@@ -245,6 +245,9 @@ export class TabbyAgent extends EventEmitter implements Agent {
       } else if (error instanceof HttpError && [401, 403].includes(error.status)) {
         this.logger.debug({ requestId, error }, "Health check error: unauthorized");
         this.changeStatus("unauthorized");
+      } else if (error instanceof HttpError && [402].includes(error.status)) {
+        this.logger.debug({ requestId, error }, "Health check error: unpaid");
+        this.changeStatus("unpaid");
       } else {
         if (isTimeoutError(error)) {
           this.logger.debug({ requestId, error }, "Health check error: timeout");

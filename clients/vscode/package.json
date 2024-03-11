@@ -51,6 +51,10 @@
         "title": "RumiCode: Set API Token"
       },
       {
+        "command": "rumicode.openDashboard",
+        "title": "RumiCode: Open Dashboard of RumiCode"
+      },
+      {
         "command": "rumicode.openSettings",
         "title": "RumiCode: Open Settings"
       },

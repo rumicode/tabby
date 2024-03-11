@@ -19,14 +19,18 @@ function showInformationWhenInitializing() {
 function showInformationWhenAutomaticTrigger() {
   window
     .showInformationMessage(
-      "RumiCode automatic code completion is enabled. Switch to manual trigger mode?",
+      "automatic code completion is enabled. 🚀 Switch to manual trigger mode?",
       "Manual Mode",
+      "Open Dashboard",
       "Settings",
     )
     .then((selection) => {
       switch (selection) {
         case "Manual Mode":
           commands.executeCommand("rumicode.toggleInlineCompletionTriggerMode", "manual");
+          break;
+        case "Open Dashboard":
+          commands.executeCommand("rumicode.openDashboard");
           break;
         case "Settings":
           commands.executeCommand("rumicode.openSettings");
@@ -38,9 +42,10 @@ function showInformationWhenAutomaticTrigger() {
 function showInformationWhenManualTrigger() {
   window
     .showInformationMessage(
-      "RumiCode is standing by. Trigger code completion manually?",
+      "standing by. Trigger code completion manually?",
       "Trigger",
       "Automatic Mode",
+      "Open Dashboard",
       "Settings",
     )
     .then((selection) => {
@@ -51,6 +56,9 @@ function showInformationWhenManualTrigger() {
           break;
         case "Automatic Mode":
           commands.executeCommand("rumicode.toggleInlineCompletionTriggerMode", "automatic");
+          break;
+        case "Open Dashboard":
+          commands.executeCommand("rumicode.openDashboard");
           break;
         case "Settings":
           commands.executeCommand("rumicode.openSettings");
@@ -143,6 +151,17 @@ function showInformationWhenUnauthorized() {
   });
 }
 
+function showInformationWhenUnpaid() {
+  const message = "Your RumiCode subscription has expired. Please proceed to purchase a subscription.";
+  window.showWarningMessage(message, "Subscribe Again ✨").then((selection) => {
+    switch (selection) {
+      case "Subscribe Again ✨":
+        commands.executeCommand("rumicode.openDashboard");
+        break;
+    }
+  });
+}
+
 /** @deprecated Tabby Cloud auth */
 function showInformationStartAuth(callbacks?: { onAuthStart?: () => void; onAuthEnd?: () => void }) {
   window
@@ -222,8 +241,9 @@ function getHelpMessageForCompletionResponseTimeIssue() {
 
 function showInformationWhenSlowCompletionResponseTime(modal: boolean = false) {
   if (modal) {
-    const stats = agent().getIssueDetail<SlowCompletionResponseTimeIssue>({ name: "slowCompletionResponseTime" })
-      ?.completionResponseStats;
+    const stats = agent().getIssueDetail<SlowCompletionResponseTimeIssue>({
+      name: "slowCompletionResponseTime",
+    })?.completionResponseStats;
     let statsMessage = "";
     if (stats && stats["responses"] && stats["averageResponseTime"]) {
       statsMessage = `The average response time of recent ${stats["responses"]} completion requests is ${Number(
@@ -271,8 +291,9 @@ function showInformationWhenSlowCompletionResponseTime(modal: boolean = false) {
 
 function showInformationWhenHighCompletionTimeoutRate(modal: boolean = false) {
   if (modal) {
-    const stats = agent().getIssueDetail<HighCompletionTimeoutRateIssue>({ name: "highCompletionTimeoutRate" })
-      ?.completionResponseStats;
+    const stats = agent().getIssueDetail<HighCompletionTimeoutRateIssue>({
+      name: "highCompletionTimeoutRate",
+    })?.completionResponseStats;
     let statsMessage = "";
     if (stats && stats["total"] && stats["timeouts"]) {
       statsMessage = `${stats["timeouts"]} of ${stats["total"]} completion requests timed out.\n\n`;
@@ -324,6 +345,7 @@ export const notifications = {
   showInformationWhenInlineSuggestDisabled,
   showInformationWhenDisconnected,
   showInformationWhenUnauthorized,
+  showInformationWhenUnpaid,
   showInformationStartAuth,
   showInformationAuthSuccess,
   showInformationWhenStartAuthButAlreadyAuthorized,

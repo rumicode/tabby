@@ -47,7 +47,7 @@ export type AgentIssue = SlowCompletionResponseTimeIssue | HighCompletionTimeout
  * @property {string} unauthorized - When the server requires authentication.
  * @property {string} finalized - When the agent is finalized.
  */
-export type AgentStatus = "notInitialized" | "ready" | "disconnected" | "unauthorized" | "finalized";
+export type AgentStatus = "notInitialized" | "ready" | "disconnected" | "unauthorized" | "finalized" | "unpaid";
 
 export interface AgentFunction {
   /**
