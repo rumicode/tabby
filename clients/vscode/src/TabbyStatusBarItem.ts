@@ -281,7 +281,7 @@ export class TabbyStatusBarItem {
     this.item.color = colorWarning;
     this.item.backgroundColor = backgroundColorWarning;
     this.item.text = `${iconDisconnected} ${label}`;
-    this.item.tooltip = "Your RumiCode subscription has expired. Please proceed to purchase a subscription. ✨";
+    this.item.tooltip = "Your RumiCode subscription has expired. Please proceed to purchase a subscription.";
     this.item.command = {
       title: "",
       command: "rumicode.applyCallback",
